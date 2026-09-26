@@ -1,0 +1,137 @@
+/* ==========================================================================
+   VRINDAHAMPERS DESIGN SYSTEM - VARIABLES & TOKENS
+   A luxury, romantic, modern aesthetic for bespoke gifting.
+   ========================================================================== */
+
+:root {
+  /* --- Brand Color Palette --- */
+  /* Primary Hues: Romantic Rose, Elegant Berry & Deep Burgundy */
+  --color-primary: #c95d73;
+  --color-primary-light: #f7e6ea;
+  --color-primary-soft: #faedf0;
+  --color-primary-dark: #98384d;
+  --color-primary-hover: #b34a60;
+
+  /* Accent Hues: Champagne Gold & Warm Honey */
+  --color-accent: #d4a359;
+  --color-accent-light: #fbf5ea;
+  --color-accent-dark: #a87930;
+  --color-accent-hover: #be8e43;
+
+  /* Neutral Canvas & Backgrounds: Warm Alabaster, Ivory & Soft Linen */
+  --color-bg-main: #fdfbf8;
+  --color-bg-surface: #ffffff;
+  --color-bg-subtle: #f9f5f0;
+  --color-bg-card: rgba(255, 255, 255, 0.88);
+  --color-bg-alt: #f3ede6;
+
+  /* Text & Contrast: Deep Charcoal & Soft Slate */
+  --color-text-main: #231f20;
+  --color-text-body: #4a4547;
+  --color-text-muted: #7d7578;
+  --color-text-light: #9e9699;
+  --color-text-inverse: #ffffff;
+
+  /* Borders & Dividers */
+  --color-border-subtle: #f0e6dc;
+  --color-border-light: #e8ded4;
+  --color-border-strong: #d4c5b9;
+
+  /* Functional & Status Colors */
+  --color-success: #2e7d32;
+  --color-success-bg: #e8f5e9;
+  --color-warning: #ed6c02;
+  --color-warning-bg: #fff4e5;
+  --color-error: #d32f2f;
+  --color-error-bg: #ffebee;
+  --color-info: #0288d1;
+  --color-info-bg: #e1f5fe;
+  --color-whatsapp: #25d366;
+  --color-whatsapp-dark: #128c7e;
+
+  /* --- Glassmorphism Accents --- */
+  --glass-bg: rgba(255, 255, 255, 0.78);
+  --glass-bg-card: rgba(255, 255, 255, 0.85);
+  --glass-bg-dark: rgba(35, 31, 32, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.7);
+  --glass-border-subtle: rgba(212, 163, 89, 0.2);
+  --glass-blur: blur(14px);
+  --glass-blur-lg: blur(24px);
+
+  /* --- Typography Scale --- */
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-serif-display: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Font Sizes */
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-base: 1rem;     /* 16px */
+  --font-size-md: 1.125rem;   /* 18px */
+  --font-size-lg: 1.25rem;    /* 20px */
+  --font-size-xl: 1.5rem;     /* 24px */
+  --font-size-2xl: 1.875rem;  /* 30px */
+  --font-size-3xl: 2.25rem;   /* 36px */
+  --font-size-4xl: 3rem;      /* 48px */
+  --font-size-5xl: 3.75rem;   /* 60px */
+
+  /* Line Heights */
+  --line-height-tight: 1.15;
+  --line-height-snug: 1.3;
+  --line-height-normal: 1.6;
+  --line-height-relaxed: 1.8;
+
+  /* Font Weights */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* --- Spacing Scale --- */
+  --space-2xs: 0.25rem;  /* 4px */
+  --space-xs: 0.5rem;    /* 8px */
+  --space-sm: 0.75rem;   /* 12px */
+  --space-md: 1rem;      /* 16px */
+  --space-lg: 1.5rem;    /* 24px */
+  --space-xl: 2rem;      /* 32px */
+  --space-2xl: 3rem;     /* 48px */
+  --space-3xl: 4.5rem;   /* 72px */
+  --space-4xl: 6rem;     /* 96px */
+
+  /* --- Border Radius Scale --- */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-full: 9999px;
+
+  /* --- Shadows (Layered Luxury Shadows) --- */
+  --shadow-xs: 0 1px 2px rgba(35, 31, 32, 0.04);
+  --shadow-sm: 0 2px 8px rgba(35, 31, 32, 0.06);
+  --shadow-md: 0 6px 18px rgba(35, 31, 32, 0.08);
+  --shadow-lg: 0 12px 30px rgba(35, 31, 32, 0.1);
+  --shadow-xl: 0 20px 48px rgba(35, 31, 32, 0.12);
+  --shadow-glow: 0 0 25px rgba(201, 93, 115, 0.22);
+  --shadow-gold: 0 8px 24px rgba(212, 163, 89, 0.25);
+
+  /* --- Layout & Container Max Widths --- */
+  --container-max-width: 1240px;
+  --container-narrow: 900px;
+  --container-wide: 1400px;
+  --container-padding: 1.25rem;
+
+  /* --- Transitions & Timing --- */
+  --transition-fast: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* --- Z-Index Hierarchy --- */
+  --z-back: -1;
+  --z-base: 1;
+  --z-sticky: 100;
+  --z-header: 1000;
+  --z-drawer: 1100;
+  --z-modal: 1200;
+  --z-toast: 1300;
+}

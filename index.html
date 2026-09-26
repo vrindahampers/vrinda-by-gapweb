@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>vrindahampers — Handcrafted Bouquets, Luxury Hampers & Bespoke Keepsakes</title>
+  <meta name="description" content="Personalized gifting e-commerce platform specializing in everlasting handcrafted bouquets, luxury custom hampers, Spotify keychains, retro polaroids, and wax-sealed calligraphy letters.">
+  <meta name="theme-color" content="#c95d73">
+
+  <!-- Google Fonts: Playfair Display + Cormorant Garamond + Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,400;1,600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Core Design System CSS -->
+  <link rel="stylesheet" href="./css/variables.css">
+  <link rel="stylesheet" href="./css/main.css">
+  <link rel="stylesheet" href="./css/components.css">
+</head>
+<body>
+
+  <!-- Dynamic Shared Header Mount Point -->
+  <div id="vrinda-header"></div>
+
+  <main id="main-content">
+    <!-- SECTION 1: HERO BANNER -->
+    <section class="section hero-section" style="padding-top: clamp(2rem, 4vw, 4rem); padding-bottom: clamp(3rem, 6vw, 5rem);">
+      <div class="container">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-xl); align-items: center;">
+          <div class="hero-content">
+            <span class="section-tag">Handcrafted With Soul</span>
+            <h1 style="margin-bottom: var(--space-md); line-height: 1.15;">
+              Personalized Gifting, <br><span class="text-gradient">Crafted For The Heart.</span>
+            </h1>
+            <p class="text-lead" style="margin-bottom: var(--space-lg); max-width: 520px;">
+              From eternal crochet bouquets and curated luxury hampers to retro polaroids and wax-sealed calligraphy letters — unwrap memories designed to linger forever.
+            </p>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: var(--space-lg);">
+              <a href="#personalized" class="btn btn-primary btn-lg">Explore Custom Gifts</a>
+              <a href="#categories" class="btn btn-secondary btn-lg">Browse Catalog</a>
+            </div>
+            <div style="display: flex; gap: var(--space-lg); align-items: center; border-top: 1px solid var(--color-border-subtle); padding-top: var(--space-md);">
+              <div>
+                <strong style="display: block; font-size: 1.3rem; font-family: var(--font-serif); color: var(--color-text-main);">10k+</strong>
+                <span style="font-size: 12px; color: var(--color-text-muted);">Smiles Delivered</span>
+              </div>
+              <div style="width: 1px; height: 32px; background: var(--color-border-subtle);"></div>
+              <div>
+                <strong style="display: block; font-size: 1.3rem; font-family: var(--font-serif); color: var(--color-text-main);">4.9 ★</strong>
+                <span style="font-size: 12px; color: var(--color-text-muted);">Customer Rating</span>
+              </div>
+              <div style="width: 1px; height: 32px; background: var(--color-border-subtle);"></div>
+              <div>
+                <strong style="display: block; font-size: 1.3rem; font-family: var(--font-serif); color: var(--color-text-main);">100%</strong>
+                <span style="font-size: 12px; color: var(--color-text-muted);">Made To Order</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="hero-visual" style="position: relative;">
+            <div class="glass-card" style="padding: 1rem; border-radius: var(--radius-xl); box-shadow: var(--shadow-xl); position: relative; z-index: 1;">
+              <div style="aspect-ratio: 4 / 4.4; border-radius: var(--radius-lg); overflow: hidden;">
+                <img src="https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=900&q=85" 
+                     alt="Artisanal Luxury Gift Hamper with Roses and Scented Candles" 
+                     style="width: 100%; height: 100%; object-fit: cover;" width="700" height="770">
+              </div>
+              <div class="glass-panel" style="position: absolute; bottom: -20px; left: -20px; padding: 14px 20px; border-radius: var(--radius-lg); display: flex; align-items: center; gap: 12px; z-index: 2;">
+                <span style="font-size: 28px;">🌸</span>
+                <div>
+                  <div style="font-weight: 700; font-size: 14px; color: var(--color-text-main);">Everlasting Blooms</div>
+                  <div style="font-size: 12px; color: var(--color-text-muted);">Zero Wilting • Pure Craft</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: FEATURED COLLECTIONS -->
+    <section class="section section-subtle" id="collections">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag gold">Artisanal Signatures</span>
+          <h2 class="section-title">Featured Curations</h2>
+          <p class="section-subtitle">Specially assembled bundles made to evoke timeless emotions.</p>
+        </div>
+        <div class="grid grid-cols-3" id="featuredCollectionsGrid"></div>
+      </div>
+    </section>
+    <!-- SECTION 3: SHOP BY CATEGORY -->
+    <section class="section" id="categories">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag">Explore The Craft</span>
+          <h2 class="section-title">Shop By Category</h2>
+          <p class="section-subtitle">Discover eternal bouquets, bespoke trunks, keychains, and romantic calligraphy.</p>
+        </div>
+        <div class="grid grid-cols-3" id="categoriesGrid"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: BEST SELLERS -->
+    <section class="section section-subtle" id="bestsellers">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag gold">Most Loved</span>
+          <h2 class="section-title">Best Sellers</h2>
+          <p class="section-subtitle">Our most cherished and viral gifting curations loved across India.</p>
+        </div>
+        <div class="grid grid-cols-4" id="bestSellersGrid"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 5: TRENDING GIFTS -->
+    <section class="section" id="trending">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag">Viral Sensations</span>
+          <h2 class="section-title">Trending This Season</h2>
+          <p class="section-subtitle">The customized gifting aesthetics taking social feeds by storm.</p>
+        </div>
+        <div class="grid grid-cols-4" id="trendingGiftsGrid"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 6: NEW ARRIVALS -->
+    <section class="section section-subtle" id="new-arrivals">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag">Fresh In Studio</span>
+          <h2 class="section-title">New Arrivals</h2>
+          <p class="section-subtitle">Newly designed bespoke keepsakes and artisanal seasonal collections.</p>
+        </div>
+        <div class="grid grid-cols-4" id="newArrivalsGrid"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 7: PERSONALIZED GIFTS SECTION -->
+    <section class="section" id="personalized">
+      <div class="container">
+        <div style="background: linear-gradient(135deg, #faedf0 0%, #fbf5ea 100%); border-radius: var(--radius-xl); padding: clamp(2rem, 5vw, 4rem); border: 1px solid var(--color-border-subtle); margin-bottom: var(--space-2xl);">
+          <div style="max-width: 650px;">
+            <span class="section-tag">100% Customized</span>
+            <h2 style="font-size: clamp(1.8rem, 3.5vw, 2.5rem); margin-bottom: var(--space-xs);">
+              Zero Pre-Made Stock. <br><span class="text-gradient">Every Piece Built For You.</span>
+            </h2>
+            <p style="color: var(--color-text-body); font-size: 1.05rem; line-height: 1.6; margin-bottom: var(--space-md);">
+              No complex file uploaders needed. Simply pick your gift style, place your order securely, and our gifting concierge coordinates directly with you on WhatsApp to collect your photos, songs, and personal notes.
+            </p>
+            <a href="https://wa.me/919876543210?text=Hi%20vrindahampers!%20I'd%20like%20to%20discuss%20a%20custom%20gift%20order." target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp">
+              WhatsApp Concierge
+            </a>
+          </div>
+        </div>
+        <div class="grid grid-cols-4" id="personalizedGiftsGrid"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 8: OCCASION-BASED GIFTS -->
+    <section class="section section-subtle" id="occasions">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag gold">Milestones & Moments</span>
+          <h2 class="section-title">Shop By Occasion</h2>
+          <p class="section-subtitle">Find the ideal gift tailored to the occasion that matters most.</p>
+        </div>
+        <div class="grid grid-cols-4" id="occasionsGrid"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 9: CUSTOMER TESTIMONIALS -->
+    <section class="section" id="testimonials">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag">Pure Love</span>
+          <h2 class="section-title">Kind Words From Happy Hearts</h2>
+          <p class="section-subtitle">Read why over 10,000+ customers trust vrindahampers with their most personal moments.</p>
+        </div>
+        <div class="grid grid-cols-3" id="testimonialsGrid"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 10: INSTAGRAM-STYLE GALLERY -->
+    <section class="section section-subtle" id="gallery">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag">Follow Our Story</span>
+          <h2 class="section-title">@vrindahampers on Instagram</h2>
+          <p class="section-subtitle">Real gifts packaged, sealed, and delivered straight from our studio table.</p>
+        </div>
+        <div class="grid grid-cols-3" id="instagramGalleryGrid"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 11: WHY CHOOSE US -->
+    <section class="section" id="why-us">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag gold">The Vrinda Standard</span>
+          <h2 class="section-title">Why Choose vrindahampers?</h2>
+          <p class="section-subtitle">We turn thoughtful intentions into unforgettable gifting experiences.</p>
+        </div>
+
+        <div class="grid grid-cols-4">
+          <div class="glass-card" style="padding: var(--space-lg); border-radius: var(--radius-lg); text-align: center;">
+            <div style="font-size: 2.2rem; margin-bottom: 12px;">🎨</div>
+            <h3 style="font-size: 1.2rem; margin-bottom: 8px;">100% Bespoke Craft</h3>
+            <p style="font-size: 0.9rem; color: var(--color-text-muted); line-height: 1.5;">Every single item is made to order after your purchase. No pre-boxed generic stock.</p>
+          </div>
+
+          <div class="glass-card" style="padding: var(--space-lg); border-radius: var(--radius-lg); text-align: center;">
+            <div style="font-size: 2.2rem; margin-bottom: 12px;">💬</div>
+            <h3 style="font-size: 1.2rem; margin-bottom: 8px;">Seamless WhatsApp Flow</h3>
+            <p style="font-size: 0.9rem; color: var(--color-text-muted); line-height: 1.5;">No clunky upload forms. We collect your photos and songs via WhatsApp with digital previews.</p>
+          </div>
+
+          <div class="glass-card" style="padding: var(--space-lg); border-radius: var(--radius-lg); text-align: center;">
+            <div style="font-size: 2.2rem; margin-bottom: 12px;">📍</div>
+            <h3 style="font-size: 1.2rem; margin-bottom: 8px;">11-Stage Live Tracking</h3>
+            <p style="font-size: 0.9rem; color: var(--color-text-muted); line-height: 1.5;">From photos received to production and dispatch, monitor every heartbeat of your gift.</p>
+          </div>
+
+          <div class="glass-card" style="padding: var(--space-lg); border-radius: var(--radius-lg); text-align: center;">
+            <div style="font-size: 2.2rem; margin-bottom: 12px;">⚡</div>
+            <h3 style="font-size: 1.2rem; margin-bottom: 8px;">Local & Nationwide Reach</h3>
+            <p style="font-size: 0.9rem; color: var(--color-text-muted); line-height: 1.5;">Express local hand-delivery via Rapido/Porter and India Post courier for all PIN codes.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 12: FREQUENTLY ASKED QUESTIONS (FAQ) -->
+    <section class="section section-subtle" id="faq">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag">Got Questions?</span>
+          <h2 class="section-title">Frequently Asked Questions</h2>
+          <p class="section-subtitle">Everything you need to know about customizing, production, and delivery.</p>
+        </div>
+        <div class="faq-list" id="faqContainer"></div>
+      </div>
+    </section>
+
+    <!-- SECTION 13: NEWSLETTER SIGNUP -->
+    <section class="section" id="newsletter">
+      <div class="container">
+        <div class="glass-panel" style="padding: clamp(2.5rem, 5vw, 4rem); text-align: center; border-radius: var(--radius-xl); background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(250,237,240,0.85) 100%);">
+          <span class="section-tag gold" style="margin-bottom: 10px;">Join The Inner Circle</span>
+          <h2 style="font-size: clamp(1.8rem, 3vw, 2.5rem); margin-bottom: 10px;">
+            Get 10% Off Your First Handcrafted Gift
+          </h2>
+          <p style="color: var(--color-text-muted); max-width: 520px; margin-inline: auto; margin-bottom: var(--space-lg);">
+            Subscribe to receive secret discount codes, festival gift guides, and early access to limited edition drops.
+          </p>
+
+          <form class="newsletter-form" id="newsletterForm" novalidate>
+            <input type="email" id="newsletterEmail" class="form-input" placeholder="Enter your email address..." required aria-label="Email address for newsletter">
+            <button type="submit" class="btn btn-primary">Subscribe</button>
+          </form>
+          <div id="newsletterMsg" style="margin-top: 10px; font-size: 13px; font-weight: 500;"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- SECTION 14: DYNAMIC SHARED FOOTER & WHATSAPP MOUNT POINT -->
+  <div id="vrinda-footer"></div>
+
+  <!-- Scripts: Local Placeholder Data -> Layout Partials -> Homepage Controller -->
+  <script src="./assets/data/sample-data.js"></script>
+  <script src="./js/layout.js"></script>
+  <script src="./js/main.js"></script>
+</body>
+</html>
+
