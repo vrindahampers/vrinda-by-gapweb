@@ -64,9 +64,11 @@
                 <span class="icon-badge">0</span>
               </a>
 
-              <a href="javascript:void(0)" class="btn btn-sm btn-outline auth-gate-trigger" data-gated="account">
-                <span>Login</span>
-              </a>
+              <div id="authActionSlot" style="display: flex; align-items: center;">
+                <a href="${basePath}pages/login.html" class="btn btn-sm btn-outline auth-btn" id="loginBtn">
+                  <span>Login</span>
+                </a>
+              </div>
             </div>
           </div>
         </header>
@@ -283,6 +285,86 @@
         alert(`vrindahampers Notice:\n\n${modalMessage}\n\n(Browsing is 100% public. Auth wiring will activate in Phase 2)`);
       });
     });
+    // Real-time Auth UI State Observer
+    if (window.VrindaAuth) {
+      window.VrindaAuth.onAuthChange((user, profile) => {
+        updateAuthUI(user, profile, basePath);
+      });
+    } else {
+      document.addEventListener('DOMContentLoaded', () => {
+        if (window.VrindaAuth) {
+          window.VrindaAuth.onAuthChange((user, profile) => {
+            updateAuthUI(user, profile, basePath);
+          });
+        }
+      });
+    }
+
+    function updateAuthUI(user, profile, basePath) {
+      const authContainer = document.getElementById('authActionSlot');
+      const drawerAuthContainer = document.getElementById('drawerAuthSlot');
+      if (!authContainer) return;
+
+      if (user) {
+        const displayName = (profile && profile.name) || user.displayName || user.email.split('@')[0];
+        const isVerified = user.emailVerified;
+        const role = (profile && profile.role) || 'customer';
+
+        authContainer.innerHTML = `
+          <div style="position: relative; display: inline-block;">
+            <button class="btn btn-sm btn-glass" id="profileDropdownBtn" style="gap: 6px; padding: 0.4rem 0.9rem;">
+              <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${isVerified ? 'var(--color-success)' : 'var(--color-warning)'};"></span>
+              <span style="max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${displayName}</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <div id="profileDropdownMenu" style="display: none; position: absolute; right: 0; top: calc(100% + 8px); width: 220px; background: var(--color-bg-surface); border: 1px solid var(--color-border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); z-index: var(--z-modal); overflow: hidden;">
+              <div style="padding: 10px 14px; border-bottom: 1px solid var(--color-border-subtle); background: var(--color-bg-subtle);">
+                <div style="font-size: 13px; font-weight: 700; color: var(--color-text-main);">${displayName}</div>
+                <div style="font-size: 11px; color: var(--color-text-muted);">${user.email}</div>
+                ${!isVerified ? `<span class="badge badge-accent" style="margin-top: 4px; font-size: 10px;">Unverified Email</span>` : ''}
+              </div>
+              <div style="padding: 6px 0;">
+                <a href="${basePath}pages/profile.html" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 13px; color: var(--color-text-main);">
+                  👤 My Profile & Addresses
+                </a>
+                <a href="${basePath}pages/orders.html" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 13px; color: var(--color-text-main);">
+                  📦 Order History
+                </a>
+                <hr style="border: 0; border-top: 1px solid var(--color-border-subtle); margin: 4px 0;">
+                <button id="logoutBtnHeader" style="width: 100%; text-align: left; display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 13px; color: var(--color-error); cursor: pointer; background: none; border: none;">
+                  🚪 Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        const dropBtn = document.getElementById('profileDropdownBtn');
+        const dropMenu = document.getElementById('profileDropdownMenu');
+        dropBtn?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dropMenu.style.display = dropMenu.style.display === 'block' ? 'none' : 'block';
+        });
+
+        document.addEventListener('click', () => {
+          if (dropMenu) dropMenu.style.display = 'none';
+        });
+
+        document.getElementById('logoutBtnHeader')?.addEventListener('click', async () => {
+          if (window.VrindaAuth) {
+            await window.VrindaAuth.logout();
+            window.location.reload();
+          }
+        });
+      } else {
+        authContainer.innerHTML = `
+          <a href="${basePath}pages/login.html" class="btn btn-sm btn-outline auth-btn" id="loginBtn">
+            <span>Login</span>
+          </a>
+        `;
+      }
+    }
+
   }
 
   // Self-execute once DOM is ready

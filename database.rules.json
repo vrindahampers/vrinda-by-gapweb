@@ -1,0 +1,73 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        // Users can read and write only their own record; Super Admins & Staff can view user records
+        ".read": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists())",
+        ".write": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).exists())",
+        "role": {
+          // Customers cannot elevate their own role to admin/staff
+          ".write": "auth != null && root.child('admins').child(auth.uid).exists()"
+        }
+      }
+    },
+    "admins": {
+      // Super Admin registry - only Super Admins can read or write
+      ".read": "auth != null && root.child('admins').child(auth.uid).exists()",
+      ".write": "auth != null && root.child('admins').child(auth.uid).exists()"
+    },
+    "staff": {
+      // Staff registry - only Super Admins can assign staff
+      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists())",
+      ".write": "auth != null && root.child('admins').child(auth.uid).exists()"
+    },
+    "deliveryManagers": {
+      // Delivery managers registry - Super Admins manage
+      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists())",
+      ".write": "auth != null && root.child('admins').child(auth.uid).exists()"
+    },
+    "cart": {
+      "$uid": {
+        // Only the owner can read/write their cart
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "wishlist": {
+      "$uid": {
+        // Only the owner can read/write their wishlist
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "orders": {
+      // Customers read their own orders; Admins & Staff read all; Delivery managers read assigned deliveries
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$orderId": {
+        ".read": "auth != null && (data.child('userId').val() === auth.uid || root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists())",
+        ".write": "auth != null"
+      }
+    },
+    "cancellationRequests": {
+      // Customers submit cancellation requests; Only Super Admins approve/reject
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || !data.exists())"
+    },
+    "products": {
+      // Products are publicly readable by anyone; editable only by Admins
+      ".read": true,
+      ".write": "auth != null && root.child('admins').child(auth.uid).exists()"
+    },
+    "categories": {
+      // Categories are publicly readable; editable only by Admins
+      ".read": true,
+      ".write": "auth != null && root.child('admins').child(auth.uid).exists()"
+    },
+    "reviews": {
+      // Publicly readable; verified customers can submit reviews; Staff/Admins can moderate
+      ".read": true,
+      ".write": "auth != null && auth.token.email_verified == true"
+    }
+  }
+}
