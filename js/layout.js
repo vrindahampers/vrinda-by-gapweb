@@ -62,19 +62,19 @@
                 </svg>
               </button>
 
-              <a href="javascript:void(0)" class="icon-btn auth-gate-trigger" data-gated="wishlist" aria-label="Wishlist">
+              <a href="${basePath}pages/wishlist.html" class="icon-btn auth-gate-trigger" data-gated="wishlist" data-href="${basePath}pages/wishlist.html" aria-label="Wishlist" title="Wishlist">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
                 </svg>
-                <span class="icon-badge">0</span>
+                <span class="icon-badge is-empty" data-badge="wishlist">0</span>
               </a>
 
-              <a href="javascript:void(0)" class="icon-btn auth-gate-trigger" data-gated="cart" aria-label="Shopping Cart">
+              <a href="${basePath}pages/cart.html" class="icon-btn auth-gate-trigger" data-gated="cart" data-href="${basePath}pages/cart.html" aria-label="Shopping Cart" title="Cart">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
                   <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
                 </svg>
-                <span class="icon-badge">0</span>
+                <span class="icon-badge is-empty" data-badge="cart">0</span>
               </a>
 
               <div id="authActionSlot" style="display: flex; align-items: center;">
@@ -100,6 +100,11 @@
             <a href="${basePath}#occasions" class="drawer-nav-link">Occasions <span>&rarr;</span></a>
             <a href="${basePath}#why-us" class="drawer-nav-link">Why Choose Us <span>&rarr;</span></a>
             <a href="${basePath}#faq" class="drawer-nav-link">FAQ & Support <span>&rarr;</span></a>
+            <a href="${basePath}pages/orders.html" class="drawer-nav-link auth-gate-trigger" data-gated="account" data-href="${basePath}pages/orders.html">My Orders <span>&rarr;</span></a>
+            <a href="${basePath}pages/order-tracking.html" class="drawer-nav-link auth-gate-trigger" data-gated="tracking" data-href="${basePath}pages/order-tracking.html">Track Your Order <span>&rarr;</span></a>
+          </div>
+          <div id="drawerAuthSlot" style="padding: 14px 24px; border-top: 1px solid var(--color-border-subtle); margin-top: auto;">
+            <a href="${basePath}pages/login.html" class="btn btn-outline btn-sm" style="display: block; width: 100%; text-align: center;">Login / Sign Up</a>
           </div>
         </aside>
 
@@ -160,8 +165,9 @@
                 <div class="footer-links">
                   <a href="${basePath}#faq">How Personalization Works</a>
                   <a href="${basePath}#faq">Shipping & Delivery Policies</a>
-                  <a href="${basePath}#faq">Cancellation Requests</a>
-                  <a href="javascript:void(0)" class="auth-gate-trigger" data-gated="tracking">Track Your Order</a>
+                  <a href="${basePath}pages/orders.html" class="auth-gate-trigger" data-gated="account" data-href="${basePath}pages/orders.html">My Orders</a>
+                  <a href="${basePath}pages/order-tracking.html" class="auth-gate-trigger" data-gated="tracking" data-href="${basePath}pages/order-tracking.html">Track Your Order</a>
+                  <a href="${basePath}pages/orders.html" class="auth-gate-trigger" data-gated="account" data-href="${basePath}pages/orders.html">Cancellation Requests</a>
                   <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer">WhatsApp Concierge</a>
                 </div>
               </div>
@@ -189,10 +195,10 @@
       `;
     }
 
-    attachLayoutEvents();
+    attachLayoutEvents(basePath);
   }
 
-  function attachLayoutEvents() {
+  function attachLayoutEvents(basePath) {
     // Header scroll background effect
     const mainHeader = document.getElementById('mainHeader');
     window.addEventListener('scroll', () => {
@@ -225,9 +231,10 @@
     mobileMenuClose?.addEventListener('click', closeDrawer);
     drawerOverlay?.addEventListener('click', closeDrawer);
 
-    // Close drawer when any drawer link is clicked
-    document.querySelectorAll('.drawer-nav-link').forEach(link => {
-      link.addEventListener('click', closeDrawer);
+    // Close drawer when any drawer link is clicked (delegated so links rendered
+    // later by updateAuthUI are covered too)
+    document.addEventListener('click', (e) => {
+      if (e.target.closest && e.target.closest('.drawer-nav-link')) closeDrawer();
     });
 
     // Search Modal Toggle & Handling
@@ -283,45 +290,45 @@
       `).join('');
     });
 
-    // Auth gating for protected actions per Phase 0 Business Rules
-    document.querySelectorAll('.auth-gate-trigger').forEach(trigger => {
-      trigger.addEventListener('click', (e) => {
-        e.preventDefault();
-        const gatedAction = trigger.getAttribute('data-gated') || 'account';
-        const gate = window.VrindaAuth
-          ? window.VrindaAuth.canPerformGatedAction(gatedAction)
-          : {
-              allowed: false,
-              reason: 'unauthenticated',
-              message: 'Account services are still initializing. Please try again in a moment.'
-            };
+    // Auth gating for protected actions per the Phase 0 business rules.
+    // Delegated (rather than per-element) so buttons rendered later by the shop
+    // controllers — product cards, wishlist hearts — are covered automatically.
+    document.addEventListener('click', (e) => {
+      const target = e.target;
+      if (!target || typeof target.closest !== 'function') return;
 
-        if (!gate.allowed) {
-          alert(`vrindahampers Notice:\n\n${gate.message}\n\n(Browsing the full catalog is always 100% public.)`);
-          if (gate.reason === 'unauthenticated') {
-            window.location.href = `${basePath}pages/login.html?redirect=${encodeURIComponent(window.location.href)}`;
-          } else if (gate.reason === 'unverified_email') {
-            window.location.href = `${basePath}pages/profile.html`;
-          }
-          return;
-        }
+      const trigger = target.closest('.auth-gate-trigger');
+      if (!trigger) return;
 
-        // Authenticated (and verified where required) — let page controllers pick the action up.
-        document.dispatchEvent(new CustomEvent('vrinda:gated-action', {
-          detail: { action: gatedAction, trigger: trigger }
-        }));
+      e.preventDefault();
+      const gatedAction = trigger.getAttribute('data-gated') || 'account';
+      const destination = trigger.getAttribute('data-href') || '';
 
-        const pendingNotice = {
-          cart: 'Cart, checkout and FamGateway payments release in Phase 4 of our rollout.',
-          wishlist: 'Wishlist account sync releases in Phase 4 of our rollout.',
-          tracking: 'Live 11-step order tracking releases in Phase 5 of our rollout.'
-        }[gatedAction];
+      const allowed = window.VrindaAuth
+        ? window.VrindaAuth.requireGate(gatedAction, {
+            redirectUrl: destination || window.location.href,
+            loginPath: `${basePath}pages/login.html`,
+            profilePath: `${basePath}pages/profile.html`
+          })
+        : false;
 
-        if (pendingNotice) {
-          alert(`vrindahampers Notice:\n\n${pendingNotice}\n\nYour account is verified — this feature activates in the next release.`);
-        }
-      });
+      if (!allowed) return;
+
+      // Authenticated (and verified where required) — let page controllers react too.
+      document.dispatchEvent(new CustomEvent('vrinda:gated-action', {
+        detail: { action: gatedAction, trigger: trigger }
+      }));
+
+      if (gatedAction === 'tracking') {
+        window.location.href = destination || `${basePath}pages/order-tracking.html`;
+        return;
+      }
+
+      if (destination) window.location.href = destination;
     });
+
+    // Keep the header cart/wishlist counters in sync with the RTDB cart.
+    refreshHeaderBadges();
     // Real-time Auth UI State Observer
     if (window.VrindaAuth) {
       window.VrindaAuth.onAuthChange((user, profile) => {
@@ -335,6 +342,28 @@
           });
         }
       });
+    }
+
+    /**
+     * Header cart / wishlist counters. store-service.js owns the numbers; on pages
+     * that load it after layout.js we poll briefly instead of failing silently.
+     */
+    function refreshHeaderBadges() {
+      if (window.VrindaStore && typeof window.VrindaStore.refreshBadges === 'function') {
+        window.VrindaStore.refreshBadges();
+        return;
+      }
+
+      let attempts = 0;
+      const timer = setInterval(() => {
+        attempts += 1;
+        if (window.VrindaStore && typeof window.VrindaStore.refreshBadges === 'function') {
+          window.VrindaStore.refreshBadges();
+          clearInterval(timer);
+        } else if (attempts > 20) {
+          clearInterval(timer);
+        }
+      }, 250);
     }
 
     function updateAuthUI(user, profile, basePath) {
@@ -367,6 +396,22 @@
                 <a href="${basePath}pages/orders.html" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 13px; color: var(--color-text-main);">
                   📦 Order History
                 </a>
+                <a href="${basePath}pages/order-tracking.html" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 13px; color: var(--color-text-main);">
+                  📍 Track an Order
+                </a>
+                ${role === 'superadmin' ? `
+                  <a href="${basePath}admin/index.html" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 13px; color: var(--color-primary); font-weight: 600;">
+                    👑 Super Admin Portal
+                  </a>
+                ` : role === 'staff' ? `
+                  <a href="${basePath}admin/staff.html" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 13px; color: var(--color-primary); font-weight: 600;">
+                    📋 Staff Operations
+                  </a>
+                ` : role === 'delivery' ? `
+                  <a href="${basePath}admin/delivery.html" style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 13px; color: var(--color-primary); font-weight: 600;">
+                    🛵 Delivery Hub
+                  </a>
+                ` : ''}
                 <hr style="border: 0; border-top: 1px solid var(--color-border-subtle); margin: 4px 0;">
                 <button id="logoutBtnHeader" style="width: 100%; text-align: left; display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 13px; color: var(--color-error); cursor: pointer; background: none; border: none;">
                   🚪 Sign Out
@@ -393,12 +438,44 @@
             window.location.reload();
           }
         });
+
+        // Mobile drawer mirrors the header account controls.
+        if (drawerAuthContainer) {
+          drawerAuthContainer.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+              <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: ${isVerified ? 'var(--color-success)' : 'var(--color-warning)'};"></span>
+              <div style="min-width: 0;">
+                <div style="font-size: 13px; font-weight: 700; color: var(--color-text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${displayName}</div>
+                <div style="font-size: 11px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${user.email}</div>
+              </div>
+            </div>
+            <a href="${basePath}pages/profile.html" class="drawer-nav-link">👤 My Profile &amp; Addresses <span>&rarr;</span></a>
+            <a href="${basePath}pages/orders.html" class="drawer-nav-link">📦 Order History <span>&rarr;</span></a>
+            ${role === 'superadmin' ? `<a href="${basePath}admin/index.html" class="drawer-nav-link" style="color: var(--color-primary); font-weight: 600;">👑 Super Admin Portal <span>&rarr;</span></a>` : ''}
+            ${role === 'staff' ? `<a href="${basePath}admin/staff.html" class="drawer-nav-link" style="color: var(--color-primary); font-weight: 600;">📋 Staff Operations <span>&rarr;</span></a>` : ''}
+            ${role === 'delivery' ? `<a href="${basePath}admin/delivery.html" class="drawer-nav-link" style="color: var(--color-primary); font-weight: 600;">🛵 Delivery Hub <span>&rarr;</span></a>` : ''}
+            <button id="logoutBtnDrawer" style="width: 100%; text-align: left; display: flex; align-items: center; gap: 8px; padding: 12px 0; font-size: var(--font-size-md); font-family: var(--font-serif); color: var(--color-error); cursor: pointer; background: none; border: none;">
+              🚪 Sign Out
+            </button>
+          `;
+          document.getElementById('logoutBtnDrawer')?.addEventListener('click', async () => {
+            if (window.VrindaAuth) {
+              await window.VrindaAuth.logout();
+              window.location.reload();
+            }
+          });
+        }
       } else {
         authContainer.innerHTML = `
           <a href="${basePath}pages/login.html" class="btn btn-sm btn-outline auth-btn" id="loginBtn">
             <span>Login</span>
           </a>
         `;
+        if (drawerAuthContainer) {
+          drawerAuthContainer.innerHTML = `
+            <a href="${basePath}pages/login.html" class="btn btn-outline btn-sm" style="display: block; width: 100%; text-align: center;">Login / Sign Up</a>
+          `;
+        }
       }
     }
 
@@ -410,5 +487,21 @@
   } else {
     initLayout();
   }
+
+  // Global image fallback: any broken remote product photo degrades to the
+  // local brand mark instead of a broken-image icon (capture phase catches
+  // resource errors that do not bubble).
+  document.addEventListener('error', (e) => {
+    const t = e.target;
+    if (t && t.tagName === 'IMG' && !t.dataset.vhFallback) {
+      t.dataset.vhFallback = '1';
+      const inSection = window.location.pathname.includes('/pages/') ||
+        window.location.pathname.includes('/admin/') ||
+        window.location.pathname.includes('/category/') ||
+        window.location.pathname.includes('/product/') ||
+        window.location.pathname.includes('/custom/');
+      t.src = (inSection ? '../' : './') + 'assets/icons/favicon.svg';
+    }
+  }, true);
 })();
 

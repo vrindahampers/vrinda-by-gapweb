@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Orders — vrindahampers</title>
+  <meta name="description" content="Track every vrindahampers order: status, gift details, payment reference and delivery preferences in one place.">
+  <meta name="theme-color" content="#c95d73">
+  <link rel="icon" type="image/svg+xml" href="../assets/icons/favicon.svg">
+  <link rel="manifest" href="../site.webmanifest">
+  <meta name="robots" content="noindex, nofollow">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+  <div id="vrinda-header"></div>
+
+  <main class="section" style="padding-top: 2rem; padding-bottom: 5rem;">
+    <div class="container">
+
+      <nav class="breadcrumb-nav" aria-label="Breadcrumb">
+        <a href="../index.html">Home</a> <span>/</span>
+        <span style="color: var(--color-text-main); font-weight: 600;">My Orders</span>
+      </nav>
+
+      <div class="page-head">
+        <span class="section-tag">Order History</span>
+        <h1>My Orders</h1>
+        <p>
+          Every order travels our 11-step gifting journey — payment confirmation, photo collection,
+          mockup approval, crafting, packing and delivery. Expand any order for the live timeline.
+        </p>
+        <p class="live-flag" id="ordersLiveFlag" style="margin-top: 10px;">Live status updates on</p>
+      </div>
+
+      <div id="ordersNotice" class="notice-bar" style="display: none;"></div>
+
+      <div id="ordersLoading" class="page-loading">
+        <span class="spinner"></span> Fetching your orders…
+      </div>
+
+      <div id="ordersList" class="orders-list" style="display: none;"></div>
+
+      <div id="ordersEmpty" class="empty-state" style="display: none;">
+        <div class="empty-state-icon">📦</div>
+        <h3>No orders yet</h3>
+        <p>Once you place your first order it will appear here with live status updates.</p>
+        <div class="empty-state-actions">
+          <a href="../category/?slug=all" class="btn btn-primary">Start Gifting</a>
+        </div>
+      </div>
+
+      <div class="glass-card panel-card" style="margin-top: 2rem;">
+        <div class="panel-head"><h2>Need help with an order?</h2></div>
+        <p style="margin: 0 0 1rem; font-size: var(--font-size-sm); color: var(--color-text-muted); line-height: 1.6;">
+          Track any of your orders by ID on the
+          <a href="./order-tracking.html" style="color: var(--color-primary); font-weight: 600;">live tracking page</a>,
+          or message our gifting concierge on WhatsApp for anything urgent.
+        </p>
+        <div class="order-card-tabs">
+          <a href="./order-tracking.html" class="btn btn-secondary btn-sm">Track Another Order</a>
+          <a href="https://wa.me/919876543210?text=Hi%20vrindahampers!%20I%20need%20help%20with%20an%20order."
+             target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp btn-sm">WhatsApp Concierge</a>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <div id="cancelDialog" class="cancel-dialog" role="dialog" aria-modal="true" aria-labelledby="cancelDialogTitle" aria-hidden="true">
+    <div class="cancel-dialog-card">
+      <div class="cancel-dialog-head">
+        <div>
+          <h2 id="cancelDialogTitle">Request cancellation</h2>
+          <p>
+            Order <strong id="cancelDialogOrderId">—</strong> · Our Super Admin team reviews every request
+            before any refund is issued.
+          </p>
+        </div>
+        <button type="button" class="cancel-dialog-close" id="cancelDialogClose" aria-label="Close cancellation dialog">&times;</button>
+      </div>
+
+      <div id="cancelDialogNotice" class="notice-bar" style="display: none;"></div>
+
+      <form id="cancelForm" novalidate>
+        <div class="cancel-reasons">
+          <label class="cancel-reason"><input type="radio" name="cancelReason" value="Ordered by mistake" checked> Ordered by mistake</label>
+          <label class="cancel-reason"><input type="radio" name="cancelReason" value="Delivery date no longer works"> Delivery date no longer works</label>
+          <label class="cancel-reason"><input type="radio" name="cancelReason" value="Found an alternative gift"> Found an alternative gift</label>
+          <label class="cancel-reason"><input type="radio" name="cancelReason" value="Budget changed"> Budget changed</label>
+          <label class="cancel-reason"><input type="radio" name="cancelReason" value="Other reason"> Other reason (add a note below)</label>
+        </div>
+
+        <label class="form-label" for="cancelNotes">Anything we should know? (optional)</label>
+        <textarea id="cancelNotes" class="form-input" rows="3"
+                  placeholder="Tell us why you want to cancel so we can help faster."></textarea>
+
+        <div class="cancel-dialog-actions">
+          <button type="submit" class="btn btn-primary" id="cancelSubmitBtn">Submit Request</button>
+          <button type="button" class="btn btn-secondary" id="cancelDialogDismiss">Keep My Order</button>
+        </div>
+      </form>
+
+      <p class="secure-note" style="text-align: left; margin-top: 0.85rem;">
+        Requests can only be raised before dispatch. Approved refunds return to the original payment method
+        within 5–7 business days.
+      </p>
+    </div>
+  </div>
+
+  <div id="vrinda-footer"></div>
+
+  <!-- Firebase Compat CDN -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <!-- Project Scripts -->
+  <script src="../assets/data/sample-data.js"></script>
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/catalog-service.js"></script>
+  <script src="../js/store-service.js"></script>
+  <script src="../js/order-service.js"></script>
+  <script src="../js/famgateway.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/commerce-ui.js"></script>
+  <script src="../js/orders-controller.js"></script>
+
+</body>
+</html>

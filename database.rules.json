@@ -1,4 +1,16 @@
 {
+  // ---------------------------------------------------------------------------
+  // vrindahampers Realtime Database security rules.
+  //
+  // This file intentionally uses `//` comments. `firebase deploy --only database`
+  // reads it verbatim (`options.config.readProjectFile`) and validates the syntax
+  // SERVER-SIDE, so it is not parsed as strict JSON here — comments are supported
+  // by both the Firebase CLI and the Console rules editor.
+  // Strict JSON parsers (VS Code's JSON validator, generic linters) will flag the
+  // comments; that is expected and safe. Do not strip them.
+  //
+  // Deploy:  firebase deploy --only database
+  // ---------------------------------------------------------------------------
   "rules": {
     "users": {
       "$uid": {
@@ -41,18 +53,60 @@
       }
     },
     "orders": {
-      // Customers read their own orders; Admins & Staff read all; Delivery managers read assigned deliveries
-      ".read": "auth != null",
-      ".write": "auth != null",
+      // Operations roles (Super Admin / Staff / Delivery Manager) read and update every order.
+      // Customers only ever touch their own order via the $orderId rules below.
+      // IMPORTANT: Realtime Database rules cascade DOWNWARDS only - a permissive parent can never
+      // be tightened by a child, so the parent must stay locked to operations roles.
+      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists())",
+      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists())",
       "$orderId": {
+        // Owner reads their own order; operations roles read all.
         ".read": "auth != null && (data.child('userId').val() === auth.uid || root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists())",
-        ".write": "auth != null"
+        // Operations roles can always write; a customer may only CREATE an order stamped with their own uid.
+        ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || (!data.exists() && newData.child('userId').val() === auth.uid))",
+        // Narrow owner escape hatch for the Phase 5 cancellation-request markers.
+        "cancellationStatus": {
+          ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || (!data.exists() && root.child('userOrders').child(auth.uid).child($orderId).exists()))"
+        },
+        "cancellationRequestId": {
+          ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || (!data.exists() && root.child('userOrders').child(auth.uid).child($orderId).exists()))"
+        }
       }
     },
     "cancellationRequests": {
-      // Customers submit cancellation requests; Only Super Admins approve/reject
-      ".read": "auth != null",
-      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || !data.exists())"
+      // Customers submit cancellation requests for their own paid orders;
+      // Super Admins & Staff review, approve or reject them.
+      "$requestId": {
+        ".read": "auth != null && (data.child('userId').val() === auth.uid || root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists())",
+        ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || (!data.exists() && root.child('userOrders').child(auth.uid).child(newData.child('orderId').val()).exists()))"
+      }
+    },
+    "userOrders": {
+      // Lightweight per-customer order index (Phase 4/5) - one cheap read per customer.
+      "$uid": {
+        // Delivery managers also maintain the index because status/dispatch updates write here.
+        ".read": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists())",
+        ".write": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists())"
+      }
+    },
+    "adminNotifications": {
+      // Staff-facing alerts for new orders and cancellation requests; customers never read these.
+      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists())",
+      ".write": "auth != null"
+    },
+    "paymentSessions": {
+      // FamGateway order -> orderId ledger so payment-return.html can recover the created order.
+      "$gatewayOrderId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "checkoutDrafts": {
+      // Cross-device recovery of an in-progress checkout form (localStorage is the primary copy).
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
     },
     "products": {
       // Products are publicly readable by anyone; editable only by Admins
@@ -65,9 +119,41 @@
       ".write": "auth != null && root.child('admins').child(auth.uid).exists()"
     },
     "reviews": {
-      // Publicly readable; verified customers can submit reviews; Staff/Admins can moderate
+      // Publicly readable; verified customers own their own review rows; Staff/Admins moderate all.
       ".read": true,
-      ".write": "auth != null && auth.token.email_verified == true"
+      "$productId": {
+        // Moderation (delete any review) is reserved for Staff and Super Admins.
+        ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists())",
+        "$reviewId": {
+          // A verified shopper may only create/edit/remove a review stamped with their own uid.
+          ".write": "auth != null && auth.token.email_verified == true && (!data.exists() || data.child('userId').val() === auth.uid) && (!newData.exists() || newData.child('userId').val() === auth.uid)"
+        }
+      }
+    },
+    "coupons": {
+      // Coupons are publicly readable for checkout validation; only Admins write
+      ".read": true,
+      ".write": "auth != null && root.child('admins').child(auth.uid).exists()"
+    },
+    "banners": {
+      // Promotional banners managed by Super Admin
+      ".read": true,
+      ".write": "auth != null && root.child('admins').child(auth.uid).exists()"
+    },
+    "blogs": {
+      // Blog posts managed by Super Admin
+      ".read": true,
+      ".write": "auth != null && root.child('admins').child(auth.uid).exists()"
+    },
+    "settings": {
+      // Site config, payment details, contact info managed by Super Admin
+      ".read": true,
+      ".write": "auth != null && root.child('admins').child(auth.uid).exists()"
+    },
+    "seo": {
+      // SEO meta configurations managed by Super Admin
+      ".read": true,
+      ".write": "auth != null && root.child('admins').child(auth.uid).exists()"
     },
     "customRequests": {
       // Customers submit bespoke configurator designs; Staff/Admins review them

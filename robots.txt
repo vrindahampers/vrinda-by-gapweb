@@ -1,0 +1,23 @@
+# vrindahampers — crawler directives
+# Replace YOUR-DOMAIN below with your deployed origin, e.g.
+#   https://<username>.github.io/vrindahamp/
+# (keep the trailing slash).
+
+User-agent: *
+Allow: /
+
+# Transactional & account surfaces are private (also marked noindex in markup).
+Disallow: /admin/
+Disallow: /pages/cart.html
+Disallow: /pages/checkout.html
+Disallow: /pages/payment-return.html
+Disallow: /pages/order-success.html
+Disallow: /pages/orders.html
+Disallow: /pages/order-tracking.html
+Disallow: /pages/profile.html
+Disallow: /pages/wishlist.html
+
+# Deep 404 fallback router should never be indexed.
+Disallow: /404.html
+
+Sitemap: https://YOUR-DOMAIN/sitemap.xml

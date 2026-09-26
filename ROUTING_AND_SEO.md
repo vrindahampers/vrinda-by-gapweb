@@ -49,7 +49,13 @@ Every generated product and category page dynamically populates:
 | `/<repo>/product/velvet-midnight-rose-bouquet` | `/<repo>/product/?slug=velvet-midnight-rose-bouquet` |
 | `/<repo>/velvet-midnight-rose-bouquet` | `/<repo>/product/?slug=velvet-midnight-rose-bouquet` |
 | `/<repo>/custom/hamper` | `/<repo>/custom/?type=hamper` |
+| `/<repo>/pages/orders.html` | My Orders history (auth required) |
+| `/<repo>/pages/order-tracking.html?orderId=VRH-260926-K7Q4` | Live 11-step order tracker (auth required; also accepts `?id=`) |
 | `/<repo>/totally-unknown` | Friendly suggestions page (Home / Catalog / WhatsApp) — **no redirect loop** |
+
+> **Private pages** (`cart`, `wishlist`, `checkout`, `payment-return`, `order-success`, `orders`,
+> `order-tracking`) intentionally keep `pages/*.html` URLs with query params. They are `noindex` and
+> behind auth, so they need neither pretty URLs nor shared-linking SEO metadata.
 
 ### Root resolution on deep 404 URLs
 GitHub Pages serves `404.html` **at the requested URL** (e.g. `/<repo>/bouquets/red-rose`),

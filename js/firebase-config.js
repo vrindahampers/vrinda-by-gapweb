@@ -1,35 +1,33 @@
 /**
  * vrindahampers - Firebase Configuration & Initialization
- * 
- * Instructions:
- * 1. Go to Firebase Console: https://console.firebase.google.com/
- * 2. Select or create your Firebase project: "vrindahampers"
- * 3. Go to Project Settings -> General -> "Your apps" -> Add Web App ("</>")
- * 4. Copy the firebaseConfig object properties and replace the placeholders below.
- * 5. Under Authentication -> Sign-in method:
- *    - Enable "Email/Password"
- *    - Enable "Google"
- *    - In "Authorized domains", add:
+ *
+ * The web app keys below are already configured for the live
+ * "vrindahampers-db" project. If you ever need to rotate them:
+ * 1. Firebase Console -> https://console.firebase.google.com/
+ * 2. Project Settings -> General -> Your apps -> Web app -> Regenerate keys
+ * 3. Update the firebaseConfig object below.
+ * 4. Under Authentication -> Sign-in method, ensure "Email/Password" and
+ *    "Google" are enabled, and under "Authorized domains" add:
  *      - localhost
  *      - 127.0.0.1
- *      - yourusername.github.io (your GitHub Pages custom domain)
- * 6. Under Realtime Database -> Create Database (choose Singapore `asia-southeast1` or US Central):
- *    - Set up rules using the provided `database.rules.json`.
+ *      - your deployed domain (e.g. yourusername.github.io or your custom domain)
+ * 5. Realtime Database rules are published from database.rules.json
+ *    (see FIREBASE_SETUP.md).
  */
 
 (function () {
   'use strict';
 
-  // REPLACE THESE PLACEHOLDERS WITH YOUR ACTUAL FIREBASE PROJECT KEYS
+  // Live keys for the vrindahampers-db Firebase project (see header for rotation steps).
   const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
-  };
+  apiKey: "AIzaSyAj9TuSSVW8SQAKYMDU8pBSRExWElsqdE0",
+  authDomain: "vrindahampers-db.firebaseapp.com",
+  databaseURL: "https://vrindahampers-db-default-rtdb.firebaseio.com",
+  projectId: "vrindahampers-db",
+  storageBucket: "vrindahampers-db.firebasestorage.app",
+  messagingSenderId: "690883110721",
+  appId: "1:690883110721:web:ed46a35847cf98065963c0"
+};
 
   // Safe initialization
   if (typeof firebase !== 'undefined' && !firebase.apps.length) {

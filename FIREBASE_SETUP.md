@@ -54,6 +54,33 @@ This document walks you through configuring Firebase Authentication and Realtime
 5. Copy the full contents of `database.rules.json` from the repository and paste into the editor.
 6. Click **Publish**.
 
+### Deploying rules from the CLI (recommended)
+
+The repository already ships a `.firebaserc` that pins the project (`projects.default =
+vrindahampers-db`) and a `firebase.json` that points at `database.rules.json`, so the rules publish in two commands:
+
+```bash
+npm install -g firebase-tools     # once
+firebase login                    # once, per machine
+firebase deploy --only database
+```
+
+Expected tail of a successful deploy:
+
+```
+database: checking rules syntax for database vrindahampers-db-default-rtdb...
+database: rules syntax for database vrindahampers-db-default-rtdb is valid
+✔  Deploy complete!
+Database Rules: https://console.firebase.google.com/project/vrindahampers-db/database/rules
+```
+
+`firebase deploy` reads `database.rules.json` verbatim and validates it **server-side**, so the
+file's `//` comments are fully supported (the Console rules editor accepts them too). Generic JSON
+linters will flag those comments — that is expected, not an error.
+
+> GitHub Pages cannot run Firebase; the static site only *reads/writes* the Realtime Database,
+> so `firebase.json` intentionally contains **only** a `database` block — no `hosting` block.
+
 ---
 
 ## 5. Roles & Admin Hierarchy (Business Rules)
@@ -82,6 +109,13 @@ To assign an Admin or Staff or Delivery Manager:
 - **Staff Admin**: Set `"role": "staff"` under `users/$uid/role` and `staff/$uid: true`.
 - **Delivery Manager**: Set `"role": "delivery"` under `users/$uid/role` and `deliveryManagers/$uid: true`.
 
+> **Bootstrapping the first Super Admin:** the `admins` node is writable only by an existing
+> Super Admin, so the very first one must be created **manually in the Firebase Console**
+> (Database → Data → add `users/<uid>/role = "superadmin"` and `admins/<uid> = true`).
+> After that, the **Admin → Staff & Roles** tab in `admin/index.html` can promote everyone else.
+> Remember to **re-deploy `database.rules.json`** after changing rules — the portals will show
+> `PERMISSION_DENIED` until the new role nodes exist in your Firebase project.
+
 ---
 
 ## 6. Realtime Database Node Map
@@ -93,10 +127,88 @@ To assign an Admin or Staff or Delivery Manager:
 | `users/$uid` | Owner read/write; Admins read all; role field only writable by Admins |
 | `admins`, `staff`, `deliveryManagers` | Staff registries; only Super Admins write |
 | `products`, `categories` | Public read; Admin-only write (catalog auto-seeds from `sample-data.js` when empty) |
-| `reviews/$productId` | Public read; write requires `auth.token.email_verified == true` |
+| `reviews/$productId/$reviewId` | Public read; a verified shopper may only create/edit/delete their **own** review row (`userId == auth.uid`); Staff & Super Admins can moderate any review |
 | `cart/$uid`, `wishlist/$uid` | Owner-only read/write (Phase 4) |
-| `orders`, `cancellationRequests` | Customer-owned reads, staff/admin workflow (Phase 5) |
+| `orders/$orderId` | Read: the order owner, Admins, Staff & Delivery Managers. Write: Admins/Staff/Delivery Managers, plus a customer creating a brand-new order stamped with their own `userId`. A customer may only additionally set the `cancellationStatus` / `cancellationRequestId` markers on their own order (Phase 4/5/6) |
+| `userOrders/$uid` | Owner read/write (one cheap index read per customer); Admins, Staff & Delivery Managers read/write all (Phase 4/5/6) |
+| `cancellationRequests/$requestId` | Read: request owner, Admins & Staff. Create: the requesting customer (their own `userOrders` entry must exist). Approve/reject: Admins only (Phase 5) |
+| `adminNotifications` | Admin, Staff & Delivery Manager read; any authenticated user can append an alert (Phase 4/5) |
+| `paymentSessions/$famgatewayOrderId` | Authenticated read/write — maps a FamGateway order to the created order so `payment-return.html` can recover it (Phase 4) |
+| `checkoutDrafts/$uid` | Owner-only read/write — cross-device checkout recovery (Phase 4) |
 | `customRequests/$uid` | Owner read/write (verified email required); Admins & Staff read all — Custom Studio designs |
 
 > **Note:** Verified-email gates match the Phase 0 business rules — reviews and custom design
 > submissions are rejected by the database itself if the customer has not verified their email.
+
+---
+
+## 7. Phase 5 — Order Tracking Data Model
+
+The canonical 11-step flow lives in `js/order-service.js` (`STATUS` / `STATUS_FLOW` /
+`TIMELINE_STEPS`) and is rendered by `VrindaCommerceUI.timelineHtml()`:
+
+```
+Order Placed → Payment Confirmed → Awaiting Customization → Customer Contacted →
+Photos Received → Customization Confirmed → Production Started → Packed →
+Assigned To Delivery → Out For Delivery → Delivered     (+ terminal: Cancelled)
+```
+
+An order record (`/orders/$orderId`) carries the tracking state:
+
+```json
+{
+  "orderId": "VRH-260926-K7Q4",
+  "status": "Photos Received",
+  "cancellationStatus": "none",
+  "cancellationRequestId": "-Nabc123",
+  "statusHistory": [
+    { "status": "Order Placed", "at": 1758880000000, "note": "Order placed & recorded in system" },
+    { "status": "Payment Confirmed", "at": 1758880000050, "note": "Payment captured via FamGateway UPI (UTR: 4021...)" }
+  ],
+  "delivery": {
+    "type": "local",
+    "shippingMode": "express",
+    "riderName": "Arun",
+    "riderPhone": "9876500011",
+    "vehicleNumber": "KA01 AB 1234",
+    "eta": "Today, 6:30 pm",
+    "courierName": "",
+    "trackingNumber": "",
+    "expectedDeliveryDate": "2026-10-02",
+    "trackingUrl": "",
+    "courierPhone": "",
+    "updatedAt": 1758881111111
+  }
+}
+```
+
+- `delivery.type` is inferred at checkout — `local` for express shipping or metro cities
+  (Bengaluru, Delhi NCR, Mumbai, Pune, Gurugram, Noida), otherwise `courier`.
+- `statusHistory` is appended automatically by `VrindaOrders.updateOrderStatus()` (Phase 6 admin
+  dashboards) and drives the timestamps shown inside the timeline.
+- `VrindaOrders.updateDeliveryTracking(orderId, {...})` fills the rider/courier fields;
+  delivery managers use this in Phase 6.
+
+### Cancellation workflow (`/cancellationRequests`)
+
+1. Customer taps **Request Cancellation** on `pages/orders.html` or the live tracker and picks a reason.
+2. `VrindaOrders.submitCancellationRequest()` atomically writes the request, sets
+   `orders/$orderId/cancellationStatus = "requested"`, mirrors it onto `userOrders/$uid` and raises an
+   `adminNotifications` alert.
+3. The Super Admin calls `approveCancellationRequest()` (order becomes `Cancelled`) or
+   `rejectCancellationRequest()` in Phase 6 — customers then see the outcome badge and can
+   deep-link to WhatsApp for the refund status.
+
+### Manual verification checklist
+
+1. Place a test order → the receipt (`pages/order-success.html`) shows the timeline at **Step 1 of 11**.
+2. Manually edit `/orders/$orderId/status` in the Firebase console to `Production Started` →
+   the receipt and `pages/orders.html` update live without a refresh (see the green “Live status
+   updates on” flag).
+3. Open `pages/order-tracking.html?orderId=VRH-...` → the tracker resolves the order, shows the
+   timeline, the rider card (metro/express) or courier card, and the WhatsApp action buttons.
+4. Tap **Request Cancellation** → `/cancellationRequests/$requestId` appears with `status: "pending"`
+   and the order shows the “Cancellation request received” notice.
+5. Try to track another customer's order ID → the read is denied by the rules and the page shows
+   the “We could not find that order” state.
+

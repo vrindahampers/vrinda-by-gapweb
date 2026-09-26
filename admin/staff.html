@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff Operations Portal — vrindahampers</title>
+  <meta name="description" content="Staff operations portal for vrindahampers: Orders handling, WhatsApp milestone checklists, rider assignments, and customer moderation.">
+  <meta name="theme-color" content="#c95d73">
+  <link rel="icon" type="image/svg+xml" href="../assets/icons/favicon.svg">
+  <link rel="manifest" href="../site.webmanifest">
+  <meta name="robots" content="noindex, nofollow">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body class="admin-body">
+  <div id="vrinda-header"></div>
+
+  <div class="admin-layout" id="staffApp" style="display: none;">
+    <!-- Staff Sidebar Navigation -->
+    <aside class="admin-sidebar">
+      <div class="admin-brand-tag">
+        <span style="font-size: 1.5rem;">📋</span>
+        <div>
+          <h3>vrindahampers</h3>
+          <span class="badge badge-new" style="font-size: 10px;">STAFF OPERATIONS</span>
+        </div>
+      </div>
+
+      <nav class="admin-nav">
+        <button class="admin-nav-item active" data-tab="orders">
+          <span>📦</span> Active Orders
+        </button>
+        <button class="admin-nav-item" data-tab="cancellations">
+          <span>⚠️</span> Cancellations
+        </button>
+        <button class="admin-nav-item" data-tab="reviews">
+          <span>⭐</span> Review Moderation
+        </button>
+      </nav>
+
+      <div style="margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--color-border-subtle);">
+        <div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 8px;" id="staffUserEmail">staff@vrindahampers.com</div>
+        <a href="../index.html" class="btn btn-xs btn-outline" style="width: 100%; justify-content: center;">
+          &larr; Back to Storefront
+        </a>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="admin-content">
+      <!-- Section 1: Staff Orders -->
+      <section id="tab-orders" class="admin-tab-section is-active">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>Staff Order Workflow</h1>
+            <p>Manage WhatsApp milestone contact, verify custom polaroids/details, pack gifts, and hand over to riders.</p>
+          </div>
+          <div class="admin-action-btns">
+            <input type="text" id="staffSearchInput" class="form-input" placeholder="Search orders..." style="max-width: 240px; padding: 0.4rem 0.75rem; font-size: 13px;">
+            <select id="staffStatusFilter" class="form-select" style="max-width: 200px; padding: 0.4rem 0.75rem; font-size: 13px;">
+              <option value="ALL">All Active Orders</option>
+              <option value="Awaiting Customization">Awaiting Customization</option>
+              <option value="Customer Contacted">Customer Contacted</option>
+              <option value="Photos Received">Photos Received</option>
+              <option value="Customization Confirmed">Customization Confirmed</option>
+              <option value="Production Started">Production Started</option>
+              <option value="Packed">Packed</option>
+              <option value="Assigned To Delivery">Assigned To Delivery</option>
+              <option value="Out For Delivery">Out For Delivery</option>
+              <option value="Delivered">Delivered</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="admin-table-container">
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Customer &amp; Recipient</th>
+                  <th>Delivery Preference</th>
+                  <th>Status</th>
+                  <th>WhatsApp &amp; Actions</th>
+                </tr>
+              </thead>
+              <tbody id="staffOrdersTbody">
+                <tr><td colspan="5" style="text-align: center; padding: 2rem;">Loading active orders...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Cancellation Requests (Review & Note) -->
+      <section id="tab-cancellations" class="admin-tab-section" style="display: none;">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>Pending Cancellation Requests</h1>
+            <p>Review customer cancellation requests. (Note: Approvals and refunds are reviewed and confirmed by Super Admin).</p>
+          </div>
+        </div>
+
+        <div class="admin-table-container">
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Request ID</th>
+                  <th>Order ID</th>
+                  <th>Reason</th>
+                  <th>Status</th>
+                  <th>WhatsApp Customer</th>
+                </tr>
+              </thead>
+              <tbody id="staffCancellationsTbody">
+                <tr><td colspan="5" style="text-align: center; padding: 2rem;">No pending cancellation requests.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+      <!-- Section 3: Reviews Moderation -->
+      <section id="tab-reviews" class="admin-tab-section" style="display: none;">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>Customer Reviews Moderation</h1>
+            <p>Monitor verified reviews left by shoppers.</p>
+          </div>
+        </div>
+
+        <div class="admin-table-container">
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Customer</th>
+                  <th>Rating</th>
+                  <th>Review</th>
+                  <th>Date</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="staffReviewsTbody">
+                <tr><td colspan="6" style="text-align: center; padding: 2rem;">Loading reviews...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Shared Modals for Staff: Checklist & Delivery Assignment -->
+  <div id="modalOrderChecklist" class="admin-modal-overlay" style="display: none;">
+    <div class="admin-modal-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 0.75rem;">
+        <h2 style="font-size: 1.25rem; margin: 0;" id="checklistModalTitle">Order Checklist</h2>
+        <button class="btn btn-xs btn-glass" onclick="document.getElementById('modalOrderChecklist').style.display='none'">✕</button>
+      </div>
+
+      <div id="checklistModalCustomerInfo" style="font-size: 13px; background: var(--color-bg-subtle); padding: 10px; border-radius: var(--radius-md);"></div>
+
+      <div>
+        <label class="form-label" style="font-weight: 700;">WhatsApp Milestone Checklist</label>
+        <p style="font-size: 12px; color: var(--color-text-muted); margin: 0 0 10px 0;">
+          Checking an item updates the customer tracking timeline immediately.
+        </p>
+        <div id="checklistItemsList" class="checklist-grid"></div>
+      </div>
+
+      <div style="border-top: 1px solid var(--color-border-subtle); padding-top: 1rem;">
+        <label class="form-label">Advance Status</label>
+        <div style="display: flex; gap: 8px;">
+          <select id="modalDirectStatusSelect" class="form-select" style="flex: 1;"></select>
+          <button class="btn btn-sm btn-primary" id="btnApplyDirectStatus">Update</button>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
+        <button class="btn btn-sm btn-glass" onclick="document.getElementById('modalOrderChecklist').style.display='none'">Close</button>
+      </div>
+    </div>
+  </div>
+  <div id="modalAssignDelivery" class="admin-modal-overlay" style="display: none;">
+    <div class="admin-modal-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 0.75rem;">
+        <h2 style="font-size: 1.25rem; margin: 0;">Assign Delivery Partner</h2>
+        <button class="btn btn-xs btn-glass" onclick="document.getElementById('modalAssignDelivery').style.display='none'">✕</button>
+      </div>
+
+      <input type="hidden" id="assignOrderId">
+
+      <div class="form-group">
+        <label class="form-label">Delivery Mode</label>
+        <select id="assignDeliveryType" class="form-select">
+          <option value="local">Local Express Rider (Rapido / Porter / In-house)</option>
+          <option value="courier">National Courier Partner (India Post / BlueDart / DTDC)</option>
+        </select>
+      </div>
+
+      <!-- Local Rider Fields -->
+      <div id="assignLocalFields" style="display: grid; gap: 10px;">
+        <div class="form-group">
+          <label class="form-label">Rider Name / Service</label>
+          <input type="text" id="assignRiderName" class="form-input" placeholder="e.g. Ramesh Kumar (Rapido)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rider Phone</label>
+          <input type="tel" id="assignRiderPhone" class="form-input" placeholder="9876543210">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Estimated Delivery Time (ETA)</label>
+          <input type="text" id="assignRiderEta" class="form-input" placeholder="e.g. Today, 5:30 PM">
+        </div>
+      </div>
+
+      <!-- National Courier Fields -->
+      <div id="assignCourierFields" style="display: none; gap: 10px; flex-direction: column;">
+        <div class="form-group">
+          <label class="form-label">Courier Company</label>
+          <input type="text" id="assignCourierName" class="form-input" placeholder="e.g. India Post Speed Post">
+        </div>
+        <div class="form-group">
+          <label class="form-label">AWB / Tracking Number</label>
+          <input type="text" id="assignAwbNumber" class="form-input" placeholder="e.g. CP123456789IN">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Courier Tracking URL</label>
+          <input type="url" id="assignTrackingUrl" class="form-input" placeholder="https://www.indiapost.gov.in/">
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 1rem;">
+        <button class="btn btn-sm btn-glass" onclick="document.getElementById('modalAssignDelivery').style.display='none'">Cancel</button>
+        <button class="btn btn-sm btn-primary" id="btnSaveDeliveryAssignment">Save &amp; Advance Status</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="vrinda-footer"></div>
+
+  <!-- Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <script src="../assets/data/sample-data.js"></script>
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/catalog-service.js"></script>
+  <script src="../js/store-service.js"></script>
+  <script src="../js/order-service.js"></script>
+  <script src="../js/admin-service.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/admin-staff-controller.js"></script>
+</body>
+</html>

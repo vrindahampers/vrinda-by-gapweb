@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Admin Control Center — vrindahampers</title>
+  <meta name="description" content="Super Admin control center for vrindahampers: Orders, Catalog, Coupons, Reviews, Staff Roles, and Store Settings.">
+  <meta name="theme-color" content="#c95d73">
+  <link rel="icon" type="image/svg+xml" href="../assets/icons/favicon.svg">
+  <link rel="manifest" href="../site.webmanifest">
+  <meta name="robots" content="noindex, nofollow">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body class="admin-body">
+  <div id="vrinda-header"></div>
+
+  <div class="admin-layout" id="adminApp" style="display: none;">
+    <!-- Sidebar Navigation -->
+    <aside class="admin-sidebar">
+      <div class="admin-brand-tag">
+        <span style="font-size: 1.5rem;">👑</span>
+        <div>
+          <h3>vrindahampers</h3>
+          <span class="badge badge-accent" style="font-size: 10px;">SUPER ADMIN</span>
+        </div>
+      </div>
+
+      <nav class="admin-nav">
+        <button class="admin-nav-item active" data-tab="dashboard">
+          <span>📊</span> Overview &amp; Stats
+        </button>
+        <button class="admin-nav-item" data-tab="orders">
+          <span>📦</span> Orders Management
+        </button>
+        <button class="admin-nav-item" data-tab="cancellations">
+          <span>⚠️</span> Cancellations <span id="cancelBadge" class="badge badge-error" style="display: none; margin-left: auto;">0</span>
+        </button>
+        <button class="admin-nav-item" data-tab="catalog">
+          <span>🎁</span> Catalog &amp; Products
+        </button>
+        <button class="admin-nav-item" data-tab="reviews">
+          <span>⭐</span> Customer Reviews
+        </button>
+        <button class="admin-nav-item" data-tab="coupons">
+          <span>🏷️</span> Discount Coupons
+        </button>
+        <button class="admin-nav-item" data-tab="staff">
+          <span>👥</span> Staff &amp; Roles
+        </button>
+        <button class="admin-nav-item" data-tab="settings">
+          <span>⚙️</span> Store Settings &amp; SEO
+        </button>
+      </nav>
+
+      <div style="margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--color-border-subtle);">
+        <div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 8px;" id="adminUserEmail">superadmin@vrindahampers.com</div>
+        <a href="../index.html" class="btn btn-xs btn-outline" style="width: 100%; justify-content: center;">
+          &larr; Back to Storefront
+        </a>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="admin-content">
+      <!-- Section 1: Dashboard Overview -->
+      <section id="tab-dashboard" class="admin-tab-section is-active">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>Command Center</h1>
+            <p>Live storefront performance, orders metrics, and revenue health.</p>
+          </div>
+          <div class="admin-action-btns">
+            <button class="btn btn-sm btn-outline" id="btnRefreshStats">🔄 Refresh Live Stats</button>
+          </div>
+        </div>
+
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <span class="label">Gross Revenue</span>
+            <div class="val" id="statRevenue">₹0</div>
+            <span class="trend">All-time completed &amp; active</span>
+          </div>
+          <div class="admin-stat-card">
+            <span class="label">Total Orders</span>
+            <div class="val" id="statTotalOrders">0</div>
+            <span class="trend" id="statDelivered">0 Delivered</span>
+          </div>
+          <div class="admin-stat-card">
+            <span class="label">Active In-Flight</span>
+            <div class="val" id="statActiveOrders" style="color: var(--color-primary-dark);">0</div>
+            <span class="trend" style="color: var(--color-warning);">Requiring prep &amp; delivery</span>
+          </div>
+          <div class="admin-stat-card">
+            <span class="label">Registered Customers</span>
+            <div class="val" id="statCustomers">0</div>
+            <span class="trend">Accounts in RTDB</span>
+          </div>
+        </div>
+
+        <!-- Recent In-Flight Orders Overview -->
+        <div class="admin-table-container">
+          <div class="admin-table-head">
+            <h2>Recent Orders Awaiting Action</h2>
+            <button class="btn btn-xs btn-glass" onclick="document.querySelector('[data-tab=\'orders\']').click()">View All Orders &rarr;</button>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Customer</th>
+                  <th>Delivery Slot</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="recentOrdersTbody">
+                <tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">Loading recent orders...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+      <!-- Section 2: Full Orders Management -->
+      <section id="tab-orders" class="admin-tab-section" style="display: none;">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>Order Operations</h1>
+            <p>Track, update 11-step milestones, assign local riders or national couriers, and chat on WhatsApp.</p>
+          </div>
+          <div class="admin-action-btns">
+            <input type="text" id="orderSearchInput" class="form-input" placeholder="Search order ID, name, phone..." style="max-width: 260px; padding: 0.4rem 0.75rem; font-size: 13px;">
+            <select id="orderStatusFilter" class="form-select" style="max-width: 200px; padding: 0.4rem 0.75rem; font-size: 13px;">
+              <option value="ALL">All Statuses</option>
+              <option value="ACTIVE">Active (In-Flight)</option>
+              <option value="Order Placed">Order Placed</option>
+              <option value="Payment Confirmed">Payment Confirmed</option>
+              <option value="Awaiting Customization">Awaiting Customization</option>
+              <option value="Customer Contacted">Customer Contacted</option>
+              <option value="Photos Received">Photos Received</option>
+              <option value="Customization Confirmed">Customization Confirmed</option>
+              <option value="Production Started">Production Started</option>
+              <option value="Packed">Packed</option>
+              <option value="Assigned To Delivery">Assigned To Delivery</option>
+              <option value="Out For Delivery">Out For Delivery</option>
+              <option value="Delivered">Delivered</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="admin-table-container">
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Order Details</th>
+                  <th>Customer / WhatsApp</th>
+                  <th>Delivery Type &amp; Slot</th>
+                  <th>Total</th>
+                  <th>Timeline Step</th>
+                  <th>Checklist &amp; Actions</th>
+                </tr>
+              </thead>
+              <tbody id="ordersTbody">
+                <tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">Loading orders ledger...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Cancellation Requests -->
+      <section id="tab-cancellations" class="admin-tab-section" style="display: none;">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>Customer Cancellation Requests</h1>
+            <p>Review customer cancellation requests. Approve to set order status to Cancelled or Reject to keep active.</p>
+          </div>
+        </div>
+
+        <div class="admin-table-container">
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Request ID</th>
+                  <th>Order ID</th>
+                  <th>Reason</th>
+                  <th>Created</th>
+                  <th>Current State</th>
+                  <th>Decision</th>
+                </tr>
+              </thead>
+              <tbody id="cancellationsTbody">
+                <tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">No cancellation requests.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+      <!-- Section 4: Catalog & Products -->
+      <section id="tab-catalog" class="admin-tab-section" style="display: none;">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>Product Catalog</h1>
+            <p>Add new hampers, edit prices, update photography, and manage inventory.</p>
+          </div>
+          <div class="admin-action-btns">
+            <button class="btn btn-sm btn-primary" id="btnOpenNewProductModal">➕ Add New Product</button>
+          </div>
+        </div>
+
+        <div class="admin-table-container">
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Category</th>
+                  <th>Price</th>
+                  <th>Customizable</th>
+                  <th>Best Seller</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="productsTbody">
+                <tr><td colspan="6" style="text-align: center; padding: 2rem;">Loading catalog...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 5: Reviews Moderation -->
+      <section id="tab-reviews" class="admin-tab-section" style="display: none;">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>Customer Reviews Moderation</h1>
+            <p>Monitor verified buyer reviews and moderate feedback.</p>
+          </div>
+        </div>
+
+        <div class="admin-table-container">
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Customer</th>
+                  <th>Rating</th>
+                  <th>Comment</th>
+                  <th>Date</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="reviewsTbody">
+                <tr><td colspan="6" style="text-align: center; padding: 2rem;">Loading reviews...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+      <!-- Section 6: Discount Coupons -->
+      <section id="tab-coupons" class="admin-tab-section" style="display: none;">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>Promotional Coupons</h1>
+            <p>Create and manage discount codes, percentage cuts, and free delivery rules.</p>
+          </div>
+          <div class="admin-action-btns">
+            <button class="btn btn-sm btn-primary" id="btnOpenNewCouponModal">➕ Create Coupon</button>
+          </div>
+        </div>
+
+        <div class="admin-table-container">
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Coupon Code</th>
+                  <th>Discount Type</th>
+                  <th>Value</th>
+                  <th>Min Order</th>
+                  <th>Description</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="couponsTbody">
+                <tr><td colspan="6" style="text-align: center; padding: 2rem;">Loading coupons...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 7: Staff & Role Assignments -->
+      <section id="tab-staff" class="admin-tab-section" style="display: none;">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>Team &amp; Role Permissions (RBAC)</h1>
+            <p>Assign roles to registered users: Super Admin, Staff Admin, Delivery Manager, or Customer.</p>
+          </div>
+        </div>
+
+        <div class="admin-table-container">
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>User / Name</th>
+                  <th>Email</th>
+                  <th>Current Role</th>
+                  <th>Promote / Reassign Role</th>
+                </tr>
+              </thead>
+              <tbody id="staffTbody">
+                <tr><td colspan="4" style="text-align: center; padding: 2rem;">Loading team members...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 8: Store Settings & SEO -->
+      <section id="tab-settings" class="admin-tab-section" style="display: none;">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>Store Settings &amp; SEO</h1>
+            <p>Configure contact numbers, FamGateway credentials, free delivery thresholds, and meta tags.</p>
+          </div>
+          <div class="admin-action-btns">
+            <button class="btn btn-sm btn-primary" id="btnSaveStoreSettings">💾 Save All Changes</button>
+          </div>
+        </div>
+
+        <div class="card" style="padding: 1.5rem; display: grid; gap: 1.5rem; max-width: 800px;">
+          <div>
+            <h3 style="margin-bottom: 0.5rem; font-size: 1.1rem;">Store Contact &amp; WhatsApp</h3>
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label class="form-label">WhatsApp Helpline (with country code)</label>
+                <input type="text" id="settingWhatsapp" class="form-input" value="919876543210">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Support Email</label>
+                <input type="email" id="settingEmail" class="form-input" value="support@vrindahampers.com">
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 style="margin-bottom: 0.5rem; font-size: 1.1rem;">Commerce &amp; Delivery Rules</h3>
+            <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label class="form-label">Free Delivery Threshold (₹)</label>
+                <input type="number" id="settingFreeShipping" class="form-input" value="1499">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Standard Shipping Fee (₹)</label>
+                <input type="number" id="settingShippingFee" class="form-input" value="99">
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 style="margin-bottom: 0.5rem; font-size: 1.1rem;">Global SEO Meta Tags</h3>
+            <div class="form-group">
+              <label class="form-label">Default Meta Title</label>
+              <input type="text" id="settingSeoTitle" class="form-input" value="vrindahampers — Handcrafted Personalized Gifts &amp; Luxury Hampers">
+            </div>
+            <div class="form-group" style="margin-top: 1rem;">
+              <label class="form-label">Default Meta Description</label>
+              <textarea id="settingSeoDesc" class="form-input" rows="3">Curated handcrafted luxury gift hampers, Spotify keychains, custom polaroids, and artisanal bouquets. Express same-day delivery available across India.</textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Shared Admin Modals -->
+  <!-- 1. Order Checklist & Timeline Advance Modal -->
+  <div id="modalOrderChecklist" class="admin-modal-overlay" style="display: none;">
+    <div class="admin-modal-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 0.75rem;">
+        <h2 style="font-size: 1.25rem; margin: 0;" id="checklistModalTitle">Order Checklist</h2>
+        <button class="btn btn-xs btn-glass" onclick="document.getElementById('modalOrderChecklist').style.display='none'">✕</button>
+      </div>
+
+      <div id="checklistModalCustomerInfo" style="font-size: 13px; background: var(--color-bg-subtle); padding: 10px; border-radius: var(--radius-md);"></div>
+
+      <div>
+        <label class="form-label" style="font-weight: 700;">WhatsApp Milestone Checklist</label>
+        <p style="font-size: 12px; color: var(--color-text-muted); margin: 0 0 10px 0;">
+          Checking an item updates the order tracking timeline immediately and registers the timestamp in real time.
+        </p>
+        <div id="checklistItemsList" class="checklist-grid"></div>
+      </div>
+
+      <div style="border-top: 1px solid var(--color-border-subtle); padding-top: 1rem;">
+        <label class="form-label">Direct Status Override</label>
+        <div style="display: flex; gap: 8px;">
+          <select id="modalDirectStatusSelect" class="form-select" style="flex: 1;"></select>
+          <button class="btn btn-sm btn-primary" id="btnApplyDirectStatus">Update Status</button>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
+        <button class="btn btn-sm btn-glass" onclick="document.getElementById('modalOrderChecklist').style.display='none'">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Delivery Assignment Modal -->
+  <div id="modalAssignDelivery" class="admin-modal-overlay" style="display: none;">
+    <div class="admin-modal-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 0.75rem;">
+        <h2 style="font-size: 1.25rem; margin: 0;">Assign Delivery Partner</h2>
+        <button class="btn btn-xs btn-glass" onclick="document.getElementById('modalAssignDelivery').style.display='none'">✕</button>
+      </div>
+
+      <input type="hidden" id="assignOrderId">
+
+      <div class="form-group">
+        <label class="form-label">Delivery Mode</label>
+        <select id="assignDeliveryType" class="form-select">
+          <option value="local">Local Express Rider (Rapido / Porter / In-house)</option>
+          <option value="courier">National Courier Partner (India Post / BlueDart / DTDC)</option>
+        </select>
+      </div>
+
+      <!-- Local Rider Fields -->
+      <div id="assignLocalFields" style="display: grid; gap: 10px;">
+        <div class="form-group">
+          <label class="form-label">Rider Name / Service</label>
+          <input type="text" id="assignRiderName" class="form-input" placeholder="e.g. Ramesh Kumar (Rapido)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rider Phone</label>
+          <input type="tel" id="assignRiderPhone" class="form-input" placeholder="9876543210">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Estimated Delivery Time (ETA)</label>
+          <input type="text" id="assignRiderEta" class="form-input" placeholder="e.g. Today, 5:30 PM">
+        </div>
+      </div>
+
+      <!-- National Courier Fields -->
+      <div id="assignCourierFields" style="display: none; gap: 10px; flex-direction: column;">
+        <div class="form-group">
+          <label class="form-label">Courier Company</label>
+          <input type="text" id="assignCourierName" class="form-input" placeholder="e.g. India Post Speed Post">
+        </div>
+        <div class="form-group">
+          <label class="form-label">AWB / Tracking Number</label>
+          <input type="text" id="assignAwbNumber" class="form-input" placeholder="e.g. CP123456789IN">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Courier Tracking URL</label>
+          <input type="url" id="assignTrackingUrl" class="form-input" placeholder="https://www.indiapost.gov.in/">
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 1rem;">
+        <button class="btn btn-sm btn-glass" onclick="document.getElementById('modalAssignDelivery').style.display='none'">Cancel</button>
+        <button class="btn btn-sm btn-primary" id="btnSaveDeliveryAssignment">Save &amp; Advance Status</button>
+      </div>
+    </div>
+  </div>
+  <!-- 3. Product Create / Edit Modal -->
+  <div id="modalProductForm" class="admin-modal-overlay" style="display: none;">
+    <div class="admin-modal-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 0.75rem;">
+        <h2 style="font-size: 1.25rem; margin: 0;" id="modalProductTitle">Add New Product</h2>
+        <button class="btn btn-xs btn-glass" onclick="document.getElementById('modalProductForm').style.display='none'">✕</button>
+      </div>
+
+      <input type="hidden" id="prodFormId">
+
+      <div class="form-group">
+        <label class="form-label">Product Title</label>
+        <input type="text" id="prodFormName" class="form-input" required placeholder="e.g. Velvet Rose Valentine Hamper">
+      </div>
+
+      <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select id="prodFormCategory" class="form-select">
+            <option value="hampers">Luxury Gift Hampers</option>
+            <option value="bouquets">Handcrafted Bouquets</option>
+            <option value="spotify">Spotify Keychains</option>
+            <option value="polaroids">Polaroid Sets</option>
+            <option value="letters">Calligraphy Letters</option>
+            <option value="keepsakes">Custom Keepsakes</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Price (₹)</label>
+          <input type="number" id="prodFormPrice" class="form-input" required placeholder="1499">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Image URL</label>
+        <input type="text" id="prodFormImage" class="form-input" placeholder="../assets/images/placeholder.jpg">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea id="prodFormDesc" class="form-input" rows="3" placeholder="Handcrafted with premium materials..."></textarea>
+      </div>
+
+      <div style="display: flex; gap: 20px;">
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+          <input type="checkbox" id="prodFormCustomizable"> Customizable
+        </label>
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+          <input type="checkbox" id="prodFormBestseller"> Mark as Bestseller
+        </label>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 1rem;">
+        <button class="btn btn-sm btn-glass" onclick="document.getElementById('modalProductForm').style.display='none'">Cancel</button>
+        <button class="btn btn-sm btn-primary" id="btnSaveProduct">Save Product</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Coupon Create Modal -->
+  <div id="modalCouponForm" class="admin-modal-overlay" style="display: none;">
+    <div class="admin-modal-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 0.75rem;">
+        <h2 style="font-size: 1.25rem; margin: 0;">Create Discount Coupon</h2>
+        <button class="btn btn-xs btn-glass" onclick="document.getElementById('modalCouponForm').style.display='none'">✕</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Coupon Code (Uppercase)</label>
+        <input type="text" id="couponFormCode" class="form-input" style="text-transform: uppercase;" required placeholder="e.g. VRINDA15">
+      </div>
+
+      <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select id="couponFormType" class="form-select">
+            <option value="percent">Percentage Off (%)</option>
+            <option value="flat">Flat Amount Off (₹)</option>
+            <option value="free_shipping">Free Shipping</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Value</label>
+          <input type="number" id="couponFormValue" class="form-input" placeholder="15">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Minimum Order Amount (₹)</label>
+        <input type="number" id="couponFormMin" class="form-input" placeholder="999">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <input type="text" id="couponFormDesc" class="form-input" placeholder="Flat 15% off on first order">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 1rem;">
+        <button class="btn btn-sm btn-glass" onclick="document.getElementById('modalCouponForm').style.display='none'">Cancel</button>
+        <button class="btn btn-sm btn-primary" id="btnSaveCoupon">Save Coupon</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="vrinda-footer"></div>
+
+  <!-- Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <script src="../assets/data/sample-data.js"></script>
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/catalog-service.js"></script>
+  <script src="../js/store-service.js"></script>
+  <script src="../js/order-service.js"></script>
+  <script src="../js/admin-service.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/admin-super-controller.js"></script>
+</body>
+</html>

@@ -102,13 +102,102 @@
     listenToReviews: function (productId, callback) {
       if (typeof firebase === 'undefined' || !firebase.database) {
         if (typeof callback === 'function') callback([]);
-        return;
+        return () => {};
       }
-      firebase.database().ref('reviews/' + productId).on('value', (snapshot) => {
+      const ref = firebase.database().ref('reviews/' + productId);
+      const handler = (snapshot) => {
         const val = snapshot.val();
         const reviews = val ? Object.values(val) : [];
         if (typeof callback === 'function') callback(reviews);
-      });
+      };
+      ref.on('value', handler);
+      return () => ref.off('value', handler);
+    },
+
+    // Listen to ALL reviews across all products (Admin only)
+    listenToAllReviews: function (callback) {
+      if (typeof firebase === 'undefined' || !firebase.database) {
+        if (typeof callback === 'function') callback([]);
+        return () => {};
+      }
+      const ref = firebase.database().ref('reviews');
+      const handler = (snapshot) => {
+        const val = snapshot.val() || {};
+        const all = [];
+        Object.keys(val).forEach(productId => {
+          const productReviews = val[productId] || {};
+          Object.keys(productReviews).forEach(reviewKey => {
+            all.push(Object.assign({ id: reviewKey, productId: productId }, productReviews[reviewKey]));
+          });
+        });
+        all.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        if (typeof callback === 'function') callback(all);
+      };
+      ref.on('value', handler);
+      return () => ref.off('value', handler);
+    },
+
+    // Delete review (Admin/Staff only)
+    deleteReview: async function (productId, reviewId) {
+      if (typeof firebase === 'undefined' || !firebase.database) return { success: false, error: 'Database unavailable' };
+      try {
+        await firebase.database().ref('reviews/' + productId + '/' + reviewId).remove();
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+
+    // Save or update product (Admin only)
+    saveProduct: async function (productData) {
+      if (typeof firebase === 'undefined' || !firebase.database) return { success: false, error: 'Database unavailable' };
+      try {
+        const id = productData.id || ('prod-' + Date.now().toString(36));
+        const record = Object.assign({}, productData, { id: id, updatedAt: firebase.database.ServerValue.TIMESTAMP });
+        await firebase.database().ref('products/' + id).set(record);
+        this.productsCache = null; // Invalidate cache
+        return { success: true, product: record };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+
+    // Delete product (Super Admin only)
+    deleteProduct: async function (productId) {
+      if (typeof firebase === 'undefined' || !firebase.database) return { success: false, error: 'Database unavailable' };
+      try {
+        await firebase.database().ref('products/' + productId).remove();
+        this.productsCache = null; // Invalidate cache
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+
+    // Save or update category (Admin only)
+    saveCategory: async function (categoryData) {
+      if (typeof firebase === 'undefined' || !firebase.database) return { success: false, error: 'Database unavailable' };
+      try {
+        const id = categoryData.id || categoryData.slug || ('cat-' + Date.now().toString(36));
+        const record = Object.assign({}, categoryData, { id: id });
+        await firebase.database().ref('categories/' + id).set(record);
+        this.categoriesCache = null;
+        return { success: true, category: record };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+
+    // Delete category (Super Admin only)
+    deleteCategory: async function (categoryId) {
+      if (typeof firebase === 'undefined' || !firebase.database) return { success: false, error: 'Database unavailable' };
+      try {
+        await firebase.database().ref('categories/' + categoryId).remove();
+        this.categoriesCache = null;
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
     },
 
     // Add review (verified customer gate enforced per Phase 0)

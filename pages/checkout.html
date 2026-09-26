@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout — vrindahampers</title>
+  <meta name="description" content="Complete your vrindahampers order: delivery address, gifting details, occasion, gift message and secure UPI payment via FamGateway.">
+  <meta name="theme-color" content="#c95d73">
+  <link rel="icon" type="image/svg+xml" href="../assets/icons/favicon.svg">
+  <link rel="manifest" href="../site.webmanifest">
+  <meta name="robots" content="noindex, nofollow">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+  <div id="vrinda-header"></div>
+
+  <main class="section" style="padding-top: 2rem; padding-bottom: 5rem;">
+    <div class="container">
+
+      <nav class="breadcrumb-nav" aria-label="Breadcrumb">
+        <a href="../index.html">Home</a> <span>/</span>
+        <a href="./cart.html">Cart</a> <span>/</span>
+        <span style="color: var(--color-text-main); font-weight: 600;">Checkout</span>
+      </nav>
+
+      <div class="page-head">
+        <span class="section-tag">Final Step</span>
+        <h1>Checkout</h1>
+        <p>Tell us who this gift is for and when it should arrive. Personalization photos are collected on WhatsApp right after payment.</p>
+      </div>
+
+      <div id="checkoutNotice" class="notice-bar" style="display: none;"></div>
+      <div id="gatewayModeBanner" class="mode-banner" style="display: none;"></div>
+
+      <div id="checkoutLoading" class="page-loading">
+        <span class="spinner"></span> Loading your cart…
+      </div>
+
+      <form id="checkoutForm" class="checkout-layout" novalidate style="display: none;">
+        <section class="checkout-main">
+
+          <div class="glass-card panel-card">
+            <div class="panel-head"><h2>1 · Contact Details</h2></div>
+            <div class="grid grid-cols-2">
+              <div class="form-group">
+                <label class="form-label" for="ckName">Full Name *</label>
+                <input type="text" id="ckName" class="form-input" required autocomplete="name">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="ckPhone">Phone / WhatsApp Number *</label>
+                <input type="tel" id="ckPhone" class="form-input" placeholder="10-digit mobile" required autocomplete="tel">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="ckEmail">Email (order updates)</label>
+              <input type="email" id="ckEmail" class="form-input" disabled style="background: var(--color-bg-subtle);">
+              <small class="form-hint">Payment receipts and order updates are sent to your registered email.</small>
+            </div>
+          </div>
+
+          <div class="glass-card panel-card">
+            <div class="panel-head"><h2>2 · Delivery Address</h2></div>
+            <div class="form-group">
+              <label class="form-label" for="ckAddress1">House / Flat / Building / Street *</label>
+              <input type="text" id="ckAddress1" class="form-input" required autocomplete="address-line1">
+            </div>
+            <div class="grid grid-cols-2">
+              <div class="form-group">
+                <label class="form-label" for="ckAddress2">Area / Locality</label>
+                <input type="text" id="ckAddress2" class="form-input" autocomplete="address-line2">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="ckLandmark">Landmark</label>
+                <input type="text" id="ckLandmark" class="form-input" placeholder="Near…">
+              </div>
+            </div>
+            <div class="grid grid-cols-3">
+              <div class="form-group">
+                <label class="form-label" for="ckCity">City *</label>
+                <input type="text" id="ckCity" class="form-input" required autocomplete="address-level2">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="ckState">State *</label>
+                <input type="text" id="ckState" class="form-input" required autocomplete="address-level1">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="ckPincode">PIN Code *</label>
+                <input type="text" id="ckPincode" class="form-input" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="postal-code">
+              </div>
+            </div>
+            <label class="check-row">
+              <input type="checkbox" id="ckSaveAddress" checked>
+              <span>Save this address to my profile for faster checkout next time</span>
+            </label>
+          </div>
+
+          <div class="glass-card panel-card">
+            <div class="panel-head"><h2>3 · Gifting Details</h2></div>
+            <div class="grid grid-cols-2">
+              <div class="form-group">
+                <label class="form-label" for="ckOccasion">Occasion</label>
+                <select id="ckOccasion" class="form-input"></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="ckDeliveryDate">Delivery Date Preference</label>
+                <input type="date" id="ckDeliveryDate" class="form-input">
+                <small class="form-hint" id="ckDeliveryHint"></small>
+              </div>
+            </div>
+            <div class="grid grid-cols-2">
+              <div class="form-group">
+                <label class="form-label" for="ckDeliverySlot">Preferred Time Slot</label>
+                <select id="ckDeliverySlot" class="form-input"></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="ckDeliverySpeed">Delivery Speed</label>
+                <select id="ckDeliverySpeed" class="form-input">
+                  <option value="standard">Standard (2–5 days)</option>
+                  <option value="express">Express (same-day / next-day in select metros)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="ckGiftMessage">Gift Message (handwritten on card)</label>
+              <textarea id="ckGiftMessage" class="form-input" rows="3" maxlength="500" placeholder="Write the exact words you want them to read…"></textarea>
+              <small class="form-hint"><span id="ckGiftMessageCount">0</span>/500 characters</small>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="ckNotes">Order Notes / Customization Instructions</label>
+              <textarea id="ckNotes" class="form-input" rows="3" placeholder="Colour preferences, spelling of names, song link, secret code date…"></textarea>
+            </div>
+            <label class="check-row">
+              <input type="checkbox" id="ckSurprise">
+              <span>This is a surprise — do not reveal the gift details on the outer packaging</span>
+            </label>
+          </div>
+
+          <div class="glass-card panel-card">
+            <div class="panel-head"><h2>4 · Payment</h2></div>
+            <div class="payment-option">
+              <span class="payment-logo">UPI</span>
+              <div style="flex: 1;">
+                <strong>FamGateway Secure UPI</strong>
+                <div class="payment-option-sub">Zero-fee peer-to-peer UPI. Scan the dynamic QR or tap your UPI app on the next screen.</div>
+              </div>
+              <span class="badge badge-primary">Selected</span>
+            </div>
+            <ul class="trust-list compact">
+              <li>🔒 Payments settle directly into the vrindahampers FamPay UPI wallet — no card details are ever stored.</li>
+              <li>⏱️ The FamGateway QR session stays valid for 5 minutes; you return here automatically after paying.</li>
+            </ul>
+          </div>
+
+        </section>
+
+        <aside class="glass-card summary-card checkout-summary">
+          <h2>Order Summary</h2>
+          <div id="checkoutItems" class="checkout-items"></div>
+          <div id="checkoutSummaryRows" class="summary-rows"></div>
+
+          <button type="submit" id="payNowBtn" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 1.25rem;">
+            Pay <span id="payNowAmount">₹0</span> with FamGateway
+          </button>
+          <p class="secure-note" id="payNowNote">You will be redirected to the FamGateway UPI checkout page.</p>
+
+          <ul class="trust-list">
+            <li>✅ Free standard delivery above ₹1,499.</li>
+            <li>✅ Free digital mockup approval before we craft.</li>
+            <li>✅ Order status updates on WhatsApp.</li>
+          </ul>
+        </aside>
+      </form>
+
+      <div id="checkoutEmpty" class="empty-state" style="display: none;">
+        <div class="empty-state-icon">🧺</div>
+        <h3>Your cart is empty</h3>
+        <p>Add a gift to your cart to continue to checkout.</p>
+        <div class="empty-state-actions">
+          <a href="../category/?slug=all" class="btn btn-primary">Explore the Catalog</a>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <div id="vrinda-footer"></div>
+
+  <!-- Firebase Compat CDN -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <!-- Project Scripts -->
+  <script src="../assets/data/sample-data.js"></script>
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/catalog-service.js"></script>
+  <script src="../js/store-service.js"></script>
+  <script src="../js/order-service.js"></script>
+  <script src="../js/famgateway.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/commerce-ui.js"></script>
+  <script src="../js/checkout-controller.js"></script>
+
+</body>
+</html>

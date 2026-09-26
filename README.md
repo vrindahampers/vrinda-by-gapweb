@@ -13,7 +13,7 @@ Designed as a high-performance, mobile-first, static Progressive Web App (PWA) r
 vrindahamp/
 ├── assets/                     # Static media and local data
 │   ├── images/                 # Product photography, banners, avatars, placeholders
-│   ├── icons/                  # SVG icons, favicon, app icons
+│   ├── icons/                  # SVG icons: favicon.svg brand mark, app icons
 │   └── data/
 │       └── sample-data.js      # Local catalog seed: categories, occasions, products, testimonials, gallery, FAQ
 ├── css/                        # Design system & styles
@@ -31,15 +31,37 @@ vrindahamp/
 │   ├── custom-controller.js    # Custom Studio configurator: live pricing, WhatsApp handoff, design submit
 │   ├── 404-router.js           # GitHub Pages pretty-URL fallback router
 │   ├── login-controller.js     # Login/signup/Google + email verification flows
-│   └── profile-controller.js   # Customer profile, address book, verification status
+│   ├── profile-controller.js   # Customer profile, address book, verification status
+│   ├── store-service.js        # VrindaStore: RTDB cart/wishlist sync, coupons, free-shipping totals
+│   ├── commerce-ui.js          # Shared commerce UI: money/dates, notices, summary rows, 11-step timeline, delivery card
+│   ├── famgateway.js           # FamGateway UPI: create order, dynamic QR, verify payment, simulation mode
+│   ├── order-service.js        # VrindaOrders: 11-step statuses, order creation, live listeners, WhatsApp deep links, cancellation requests
+│   ├── cart-controller.js      # Cart page: RTDB lines, qty steppers, coupon apply
+│   ├── wishlist-controller.js  # Wishlist page: move to cart, remove, share on WhatsApp
+│   ├── checkout-controller.js  # Checkout: address capture, gifting details, draft persistence, payment handoff
+│   ├── payment-return-controller.js # FamGateway return: verify payment → create order → redirect
+│   ├── order-success-controller.js  # Receipt: items, payment reference, live 11-step timeline, WhatsApp handoff
+│   ├── orders-controller.js    # My Orders: real-time index, expandable timeline + delivery card, cancellation requests
+│   └── order-tracking-controller.js # Live tracker: lookup by order ID, real-time timeline, rider/courier tracking
+├── js/admin-service.js         # VrindaAdmin: role/RBAC helpers, shared admin data access
+├── js/admin-super-controller.js     # Super Admin portal: dashboard, orders, cancellations, catalog, reviews, coupons, staff roles, settings
+├── js/admin-staff-controller.js     # Staff portal: order handling, WhatsApp milestone checklists, rider assignment, review moderation
+├── js/admin-delivery-controller.js  # Delivery portal: live dispatch queue, forward-only status advances, completed archive, tracking
 ├── category/index.html         # Catalog listing route (/?slug=bouquets)
 ├── product/index.html          # Product detail route (/?id=prod-001&slug=...)
 ├── custom/index.html           # Custom configurator route (/?type=bouquet)
-├── pages/                      # Customer-facing subpages (login.html, profile.html, ...)
-├── admin/                      # Role-gated admin dashboards (Super Admin, Staff, Delivery)
+├── pages/                      # Customer-facing subpages (login, profile, cart, wishlist, checkout, payment-return, order-success, orders, order-tracking)
+├── admin/                      # Role-gated admin dashboards
+│   ├── index.html              # Super Admin portal (role: superadmin)
+│   ├── staff.html              # Staff Admin portal (role: staff)
+│   └── delivery.html           # Delivery Manager portal (role: delivery)
 ├── 404.html                    # Smart fallback router for pretty URLs (SEO)
+├── firebase.json               # Firebase CLI config (database rules target; no hosting block)
 ├── database.rules.json         # Realtime Database security rules
-├── FIREBASE_SETUP.md           # Firebase project + rules setup guide
+├── site.webmanifest            # PWA manifest (installable app metadata + shortcuts)
+├── robots.txt                  # Crawler directives (private routes disallowed)
+├── sitemap.xml                 # Public route index for search engines
+├── FIREBASE_SETUP.md           # Firebase project + rules setup & CLI deploy guide
 ├── ROUTING_AND_SEO.md          # Static routing architecture & SEO metadata strategy
 ├── index.html                  # Complete 14-section homepage
 └── README.md                   # Project documentation & phase roadmap
@@ -61,10 +83,32 @@ vrindahamp/
 1. **Phase 1: Foundation (Completed)** — Clean GitHub Pages architecture, comprehensive CSS design system, dynamic header/footer partials, 14-section complete homepage with rich sample catalog and responsive UX.
 2. **Phase 2: Firebase Setup & Authentication (Completed)** — Firebase Auth (Email/Pass + Google), session persistence, email verification gate, RTDB user/admin security rules, customer profile.
 3. **Phase 3: Catalog & Custom Configurators (Completed)** — Filterable/searchable catalog (`/category/`), SEO-rich product detail page (`/product/`) with reviews & related items, Custom Studio configurators for Bouquet, Hamper, Keychain, Polaroids and Handwritten Letter (`/custom/`), plus the GitHub Pages pretty-URL fallback router (`404.html`).
-4. **Phase 4: Cart, Wishlist, Checkout & FamGateway** — RTDB synced cart/wishlist, checkout with occasion notes, FamGateway payment integration.
-5. **Phase 5: Order Tracking & WhatsApp** — 11-step visual tracking timeline, WhatsApp deep-link generation, courier/local delivery tracking, customer cancellation request workflow.
-6. **Phase 6: Multi-Role Admin Dashboards** — Super Admin, Staff Admin, and Delivery Manager portals with role-based access control and order checklists.
+4. **Phase 4: Cart, Wishlist, Checkout & FamGateway (Completed)** — RTDB synced cart/wishlist, checkout with occasion notes and resumable drafts, FamGateway UPI integration with dynamic QR + simulation fallback, order creation into `/orders`, `/userOrders`, `/adminNotifications` and `/paymentSessions`.
+5. **Phase 5: Order Tracking & WhatsApp (Completed)** — Canonical 11-step tracking flow (Order Placed → Payment Confirmed → Awaiting Customization → Customer Contacted → Photos Received → Customization Confirmed → Production Started → Packed → Assigned To Delivery → Out For Delivery → Delivered, plus terminal Cancelled), shared visual timeline component, real-time `/orders` and `/userOrders` listeners, dedicated live tracker page (`pages/order-tracking.html`), local-rider vs. courier delivery tracking, seven contextual WhatsApp deep-link templates, and the customer cancellation request workflow (`/cancellationRequests`) reviewed by the Super Admin.
+6. **Phase 6: Multi-Role Admin Dashboards (Completed)** — Super Admin (`/admin/index.html`), Staff Admin (`/admin/staff.html`) and Delivery Manager (`/admin/delivery.html`) portals behind RTDB-enforced RBAC; shared `js/admin-service.js` role gate, dashboard KPIs, order + cancellation queues, catalog/coupon/review management, staff role assignment, WhatsApp milestone checklists, rider assignment, a live dispatch board with forward-only status advances, and the completed-delivery archive.
 7. **Phase 7: SEO, Blog & Growth** — Schema markup (JSON-LD), sitemap, SEO landing pages, blog module, coupon engine, and marketing rails.
+
+> **Shipped early in Phase 7 prep:** `site.webmanifest` (installable PWA metadata + shortcuts),
+> `robots.txt`, `sitemap.xml` and the SVG brand favicon (`assets/icons/favicon.svg`), all wired
+> into every page head. Replace the `YOUR-DOMAIN` placeholders in `robots.txt` and
+> `sitemap.xml` with your deployed origin before submitting to Search Console.
+
+---
+
+## 🚢 Deployment (GitHub Pages + Firebase RTDB)
+
+The site itself is pure static output — push to GitHub and enable **Pages** in the repo settings.
+The database half needs the security rules published once:
+
+```bash
+firebase login
+firebase deploy --only database      # .firebaserc pins vrindahampers-db + firebase.json points at database.rules.json
+```
+
+Then bootstrap the first Super Admin manually (see `FIREBASE_SETUP.md` §5): set
+`users/<uid>/role = "superadmin"` and `admins/<uid> = true` in the Firebase Console. Until the
+rules are deployed, the three admin portals will correctly report `PERMISSION_DENIED` instead of
+leaking data.
 
 ---
 

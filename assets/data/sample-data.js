@@ -120,6 +120,72 @@ window.VRINDA_DATA = {
     }
   ],
 
+  /* --- Phase 4: Commerce Configuration (single source of truth for money math) --- */
+  commerceConfig: {
+    currency: 'INR',
+    currencySymbol: '₹',
+    freeShippingThreshold: 1499,   // matches the homepage announcement bar promise
+    standardShippingFee: 99,
+    expressShippingFee: 249,
+    codFee: 49,
+    whatsappNumber: '919876543210', // TODO: replace with the real business WhatsApp number
+    supportEmail: 'care@vrindahampers.in',
+    maxGiftMessageLength: 500,
+    advanceBookingDays: 45
+  },
+
+  /* Coupon engine seeds. Admins can also publish coupons in RTDB at /coupons/<CODE>. */
+  coupons: [
+    {
+      code: 'VRINDA10',
+      label: '10% off sitewide',
+      type: 'percent',
+      value: 10,
+      minOrder: 1499,
+      maxDiscount: 400,
+      active: true,
+      description: 'Get 10% off on orders above ₹1,499 (maximum ₹400 off).'
+    },
+    {
+      code: 'LOVE200',
+      label: 'Flat ₹200 off',
+      type: 'flat',
+      value: 200,
+      minOrder: 1999,
+      active: true,
+      description: 'Flat ₹200 off on orders above ₹1,999.'
+    },
+    {
+      code: 'FIRSTGIFT',
+      label: '15% off your first gift',
+      type: 'percent',
+      value: 15,
+      minOrder: 999,
+      maxDiscount: 300,
+      firstOrderOnly: true,
+      active: true,
+      description: '15% off (maximum ₹300) on your first vrindahampers order above ₹999.'
+    },
+    {
+      code: 'FREESHIP',
+      label: 'Free standard delivery',
+      type: 'shipping',
+      value: 0,
+      minOrder: 499,
+      active: true,
+      description: 'Free standard delivery on orders above ₹499.'
+    }
+  ],
+
+  /* Preferred delivery time slots offered at checkout */
+  deliverySlots: [
+    { id: 'anytime', label: 'Anytime (9 AM – 9 PM)' },
+    { id: 'morning', label: 'Morning (9 AM – 12 PM)' },
+    { id: 'afternoon', label: 'Afternoon (12 PM – 4 PM)' },
+    { id: 'evening', label: 'Evening (4 PM – 9 PM)' },
+    { id: 'midnight', label: 'Midnight Surprise (11:30 PM – 12:30 AM)' }
+  ],
+
   products: [
     {
       id: 'prod-001',

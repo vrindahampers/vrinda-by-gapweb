@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Gift Cart — vrindahampers</title>
+  <meta name="description" content="Review your vrindahampers cart: update quantities, remove items, apply coupon codes and see live totals before checkout.">
+  <meta name="theme-color" content="#c95d73">
+  <link rel="icon" type="image/svg+xml" href="../assets/icons/favicon.svg">
+  <link rel="manifest" href="../site.webmanifest">
+  <meta name="robots" content="noindex, nofollow">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+  <div id="vrinda-header"></div>
+
+  <main class="section" style="padding-top: 2rem; padding-bottom: 5rem;">
+    <div class="container">
+
+      <nav class="breadcrumb-nav" aria-label="Breadcrumb">
+        <a href="../index.html">Home</a> <span>/</span>
+        <span style="color: var(--color-text-main); font-weight: 600;">Cart</span>
+      </nav>
+
+      <div class="page-head">
+        <span class="section-tag">Secure Checkout</span>
+        <h1>Shopping Cart</h1>
+        <p>Every hamper is handcrafted only after you confirm the details on WhatsApp, so nothing is made in advance.</p>
+      </div>
+
+      <div id="cartNotice" class="notice-bar" style="display: none;"></div>
+
+      <div id="cartLoading" class="page-loading">
+        <span class="spinner"></span> Syncing your saved cart…
+      </div>
+
+      <div class="cart-layout" id="cartLayout" style="display: none;">
+        <section class="glass-card panel-card">
+          <div class="panel-head">
+            <h2>Your Gifts <span class="panel-count">(<span data-cart-count>0</span>)</span></h2>
+            <button id="clearCartBtn" class="btn btn-sm btn-secondary">Clear Cart</button>
+          </div>
+          <div id="cartItems"></div>
+        </section>
+
+        <aside class="glass-card summary-card">
+          <h2>Order Summary</h2>
+
+          <div id="summaryRows" class="summary-rows"></div>
+
+          <div class="coupon-block">
+            <label class="form-label" for="couponInput">Have a coupon code?</label>
+            <div class="coupon-row">
+              <input type="text" id="couponInput" class="form-input" placeholder="e.g. VRINDA10" autocomplete="off">
+              <button id="applyCouponBtn" class="btn btn-secondary">Apply</button>
+            </div>
+            <div id="couponMessage" class="coupon-message"></div>
+            <div id="appliedCouponRow" class="applied-coupon" style="display: none;">
+              <span id="appliedCouponLabel"></span>
+              <button id="removeCouponBtn" class="link-btn" type="button">Remove</button>
+            </div>
+          </div>
+
+          <a href="./checkout.html" id="checkoutBtn" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 1.25rem;">
+            Proceed to Checkout
+          </a>
+
+          <ul class="trust-list">
+            <li>✅ WhatsApp preview of your design before dispatch.</li>
+            <li>✅ Free standard delivery above ₹1,499.</li>
+            <li>✅ Secure UPI payments via FamGateway.</li>
+          </ul>
+        </aside>
+      </div>
+
+      <div id="cartEmpty" class="empty-state" style="display: none;">
+        <div class="empty-state-icon">🛍️</div>
+        <h3>Your cart is waiting to be filled</h3>
+        <p>Browse our handcrafted bouquets, luxury hampers and bespoke keepsakes to start gifting.</p>
+        <div class="empty-state-actions">
+          <a href="./../category/?slug=all" class="btn btn-primary">Explore the Catalog</a>
+          <a href="./wishlist.html" class="btn btn-secondary">View Wishlist</a>
+        </div>
+      </div>
+
+      <div class="commerce-note">
+        <strong>Available offers:</strong>
+        <div id="availableCoupons" class="offer-chips"></div>
+      </div>
+
+    </div>
+  </main>
+
+  <div id="vrinda-footer"></div>
+
+  <!-- Firebase Compat CDN -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <!-- Project Scripts -->
+  <script src="../assets/data/sample-data.js"></script>
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/catalog-service.js"></script>
+  <script src="../js/store-service.js"></script>
+  <script src="../js/order-service.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/commerce-ui.js"></script>
+  <script src="../js/cart-controller.js"></script>
+
+</body>
+</html>

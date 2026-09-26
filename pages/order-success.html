@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Confirmed — vrindahampers</title>
+  <meta name="description" content="Your vrindahampers order is placed. Confirm your personalization details on WhatsApp so we can start crafting.">
+  <meta name="theme-color" content="#c95d73">
+  <link rel="icon" type="image/svg+xml" href="../assets/icons/favicon.svg">
+  <link rel="manifest" href="../site.webmanifest">
+  <meta name="robots" content="noindex, nofollow">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+  <div id="vrinda-header"></div>
+
+  <main class="section" style="padding-top: 2.5rem; padding-bottom: 5rem;">
+    <div class="container">
+
+      <div id="successLoading" class="page-loading">
+        <span class="spinner"></span> Loading your order…
+      </div>
+
+      <div id="successWrap" style="display: none;">
+
+        <div class="success-hero">
+          <div class="success-icon">🎉</div>
+          <h1>Thank you! Your gift is on its way.</h1>
+          <p>
+            Order <strong id="successOrderId">—</strong> is confirmed and our team has been notified.
+            <br>Keep your personalization details handy — we will ask for them on WhatsApp.
+          </p>
+          <div class="success-badges">
+            <span class="badge badge-primary status-pill" id="successStatusBadge">Order Placed</span>
+            <span class="badge badge-accent" id="successPaymentBadge">FamGateway · Paid</span>
+          </div>
+          <p class="live-flag" id="successLiveFlag" style="margin-top: 12px;">Live status updates on</p>
+        </div>
+
+        <div id="successNotice" class="notice-bar" style="display: none;"></div>
+
+        <div class="success-layout">
+          <div class="success-main">
+
+            <div class="glass-card panel-card">
+              <div class="panel-head">
+                <h2>Live Order Tracking</h2>
+                <span class="panel-count" id="successStepCount">—</span>
+              </div>
+              <div id="successTimeline"></div>
+            </div>
+
+            <div class="glass-card panel-card">
+              <div class="panel-head"><h2>Delivery Tracking</h2></div>
+              <div id="successDeliveryTracking"></div>
+            </div>
+
+            <div class="glass-card panel-card">
+              <div class="panel-head"><h2>Order Items</h2></div>
+              <div id="successItems"></div>
+              <div id="successSummaryRows" class="summary-rows"></div>
+            </div>
+
+            <div class="glass-card panel-card">
+              <div class="panel-head"><h2>Delivery Details</h2></div>
+              <div id="successDelivery" class="detail-grid"></div>
+            </div>
+
+            <div class="glass-card panel-card">
+              <div class="panel-head"><h2>Gifting & Personalization</h2></div>
+              <div id="successGifting" class="detail-grid"></div>
+            </div>
+
+          </div>
+
+          <aside class="success-side">
+            <div class="glass-card panel-card">
+              <div class="panel-head"><h2>Next Steps</h2></div>
+              <ul class="trust-list compact" id="successNextSteps">
+                <li>💬 Share your photos, song link and exact wording on WhatsApp so we can build the mockup.</li>
+                <li>✨ Approve the digital preview, then our artisans handcraft your gift in the studio.</li>
+                <li>🚚 We pack, dispatch and update the live timeline above — no need to keep asking.</li>
+              </ul>
+
+              <a id="successWhatsAppBtn" href="#" target="_blank" rel="noopener noreferrer"
+                 class="btn btn-whatsapp btn-lg" style="width: 100%; margin-top: 1.25rem;">
+                Confirm Details on WhatsApp
+              </a>
+              <a id="successAskBtn" href="#" target="_blank" rel="noopener noreferrer"
+                 class="btn btn-secondary" style="width: 100%; margin-top: 10px;">Ask for a Status Update</a>
+              <a id="successTrackBtn" href="./order-tracking.html" class="btn btn-outline" style="width: 100%; margin-top: 10px;">Open Live Tracker</a>
+              <a href="./orders.html" class="btn btn-outline" style="width: 100%; margin-top: 10px;">View All Orders</a>
+              <a href="../category/?slug=all" class="btn btn-outline" style="width: 100%; margin-top: 10px;">Continue Shopping</a>
+
+              <div id="successCancelState" style="margin-top: 1rem;"></div>
+              <p class="secure-note" style="text-align: left;">
+                Changed your mind? Cancellation requests can be raised from
+                <a href="./orders.html">My Orders</a> before dispatch.
+              </p>
+            </div>
+
+            <div class="glass-card panel-card">
+              <div class="panel-head"><h2>Payment Reference</h2></div>
+              <div id="successPaymentDetails" class="detail-grid"></div>
+            </div>
+          </aside>
+        </div>
+
+      </div>
+
+      <div id="successMissing" class="empty-state" style="display: none;">
+        <div class="empty-state-icon">🔍</div>
+        <h3>We could not find that order</h3>
+        <p>If you have just paid, wait a few seconds and refresh this page, or view all of your orders.</p>
+        <div class="empty-state-actions">
+          <a href="./orders.html" class="btn btn-primary">View My Orders</a>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <div id="vrinda-footer"></div>
+
+  <!-- Firebase Compat CDN -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <!-- Project Scripts -->
+  <script src="../assets/data/sample-data.js"></script>
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/catalog-service.js"></script>
+  <script src="../js/store-service.js"></script>
+  <script src="../js/order-service.js"></script>
+  <script src="../js/famgateway.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/commerce-ui.js"></script>
+  <script src="../js/order-success-controller.js"></script>
+
+</body>
+</html>

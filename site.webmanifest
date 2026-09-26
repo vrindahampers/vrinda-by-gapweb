@@ -1,0 +1,27 @@
+{
+  "name": "vrindahampers — Personalized Gifting",
+  "short_name": "vrindahampers",
+  "description": "Handcrafted bouquets, luxury custom hampers, Spotify keychains, retro polaroids and wax-sealed calligraphy letters.",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fdfbf8",
+  "theme_color": "#c95d73",
+  "categories": ["shopping", "lifestyle"],
+  "icons": [
+    {
+      "src": "assets/icons/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Shop All Gifts", "url": "./category/?slug=all" },
+    { "name": "Track My Order", "url": "./pages/order-tracking.html" },
+    { "name": "My Orders", "url": "./pages/orders.html" }
+  ]
+}

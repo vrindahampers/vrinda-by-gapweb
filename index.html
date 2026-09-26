@@ -6,6 +6,17 @@
   <title>vrindahampers — Handcrafted Bouquets, Luxury Hampers & Bespoke Keepsakes</title>
   <meta name="description" content="Personalized gifting e-commerce platform specializing in everlasting handcrafted bouquets, luxury custom hampers, Spotify keychains, retro polaroids, and wax-sealed calligraphy letters.">
   <meta name="theme-color" content="#c95d73">
+  <link rel="icon" type="image/svg+xml" href="./assets/icons/favicon.svg">
+  <link rel="manifest" href="./site.webmanifest">
+  <link rel="canonical" href="./index.html">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="vrindahampers">
+  <meta property="og:title" content="vrindahampers — Handcrafted Bouquets, Luxury Hampers & Bespoke Keepsakes">
+  <meta property="og:description" content="Personalized gifting e-commerce platform specializing in everlasting handcrafted bouquets, luxury custom hampers, Spotify keychains, retro polaroids, and wax-sealed calligraphy letters.">
+  <meta property="og:image" content="./assets/icons/favicon.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="vrindahampers — Handcrafted Bouquets, Luxury Hampers & Bespoke Keepsakes">
+  <meta name="twitter:description" content="Everlasting bouquets, luxury hampers, Spotify keychains, retro polaroids and wax-sealed letters. 100% made to order.">
 
   <!-- Google Fonts: Playfair Display + Cormorant Garamond + Plus Jakarta Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -271,11 +282,13 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <!-- Scripts: Local Placeholder Data -> Firebase -> Auth -> Layout Partials -> Homepage Controller -->
+  <script src="./assets/data/sample-data.js"></script>
   <script src="./js/firebase-config.js"></script>
   <script src="./js/auth.js"></script>
 
-  <!-- Scripts: Local Placeholder Data -> Layout Partials -> Homepage Controller -->
-  <script src="./assets/data/sample-data.js"></script>
+  <script src="./js/commerce-ui.js"></script>
+  <script src="./js/store-service.js"></script>
   <script src="./js/layout.js"></script>
   <script src="./js/main.js"></script>
 </body>

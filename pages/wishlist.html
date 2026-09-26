@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Wishlist — vrindahampers</title>
+  <meta name="description" content="Your saved vrindahampers gifts: move favourites straight into your cart and check out whenever the moment is right.">
+  <meta name="theme-color" content="#c95d73">
+  <link rel="icon" type="image/svg+xml" href="../assets/icons/favicon.svg">
+  <link rel="manifest" href="../site.webmanifest">
+  <meta name="robots" content="noindex, nofollow">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+  <div id="vrinda-header"></div>
+
+  <main class="section" style="padding-top: 2rem; padding-bottom: 5rem;">
+    <div class="container">
+
+      <nav class="breadcrumb-nav" aria-label="Breadcrumb">
+        <a href="../index.html">Home</a> <span>/</span>
+        <span style="color: var(--color-text-main); font-weight: 600;">Wishlist</span>
+      </nav>
+
+      <div class="page-head">
+        <span class="section-tag">Saved For Later</span>
+        <h1>My Wishlist</h1>
+        <p>Your wishlist is stored on your account, so it follows you on every device you log in from.</p>
+      </div>
+
+      <div id="wishlistNotice" class="notice-bar" style="display: none;"></div>
+
+      <div id="wishlistLoading" class="page-loading">
+        <span class="spinner"></span> Syncing your saved gifts…
+      </div>
+
+      <p class="result-count" id="wishlistCountRow" style="display: none;">
+        <strong data-wishlist-count>0</strong> saved gifts
+      </p>
+
+      <div id="wishlistGrid" class="wishlist-grid" style="display: none;"></div>
+
+      <div id="wishlistEmpty" class="empty-state" style="display: none;">
+        <div class="empty-state-icon">💝</div>
+        <h3>Nothing saved yet</h3>
+        <p>Tap the heart on any product to keep it here for later.</p>
+        <div class="empty-state-actions">
+          <a href="../category/?slug=all" class="btn btn-primary">Browse Gifts</a>
+          <a href="./cart.html" class="btn btn-secondary">Go to Cart</a>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <div id="vrinda-footer"></div>
+
+  <!-- Firebase Compat CDN -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <!-- Project Scripts -->
+  <script src="../assets/data/sample-data.js"></script>
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/catalog-service.js"></script>
+  <script src="../js/store-service.js"></script>
+  <script src="../js/order-service.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/commerce-ui.js"></script>
+  <script src="../js/wishlist-controller.js"></script>
+
+</body>
+</html>

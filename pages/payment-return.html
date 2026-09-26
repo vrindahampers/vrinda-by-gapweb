@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirming Your Payment — vrindahampers</title>
+  <meta name="description" content="We are verifying your FamGateway UPI payment and creating your vrindahampers order.">
+  <meta name="theme-color" content="#c95d73">
+  <link rel="icon" type="image/svg+xml" href="../assets/icons/favicon.svg">
+  <link rel="manifest" href="../site.webmanifest">
+  <meta name="robots" content="noindex, nofollow">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+  <div id="vrinda-header"></div>
+
+  <main class="section" style="padding-top: 3rem; padding-bottom: 5rem;">
+    <div class="container" style="max-width: 760px;">
+
+      <div class="glass-card panel-card text-center" style="padding: clamp(1.75rem, 5vw, 3rem);">
+        <div id="returnIcon" class="return-icon pending">⏳</div>
+        <h1 id="returnTitle" style="font-size: clamp(1.6rem, 4vw, 2.2rem); margin-bottom: 8px;">Verifying your payment…</h1>
+        <p id="returnSubtitle" style="color: var(--color-text-muted); margin-bottom: 1.5rem;">
+          Please keep this tab open. We are confirming your UPI payment with FamGateway and creating your order.
+        </p>
+
+        <div class="steps-track" id="returnSteps">
+          <div class="step-item" data-step="session">
+            <span class="step-dot"></span>
+            <div>
+              <strong>Payment session created</strong>
+              <div class="step-sub">FamGateway dynamic UPI session opened</div>
+            </div>
+          </div>
+          <div class="step-item" data-step="verify">
+            <span class="step-dot"></span>
+            <div>
+              <strong>Confirming payment with the gateway</strong>
+              <div class="step-sub">Server-to-server UTR verification</div>
+            </div>
+          </div>
+          <div class="step-item" data-step="order">
+            <span class="step-dot"></span>
+            <div>
+              <strong>Creating your order</strong>
+              <div class="step-sub">Status set to “Order Placed” and our team alerted</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="returnNotice" class="notice-bar" style="display: none; text-align: left; margin-top: 1.25rem;"></div>
+
+        <div id="returnActions" class="empty-state-actions" style="display: none; margin-top: 1.5rem;">
+          <a href="./orders.html" class="btn btn-primary">View My Orders</a>
+          <a href="./cart.html" class="btn btn-secondary">Back to Cart</a>
+        </div>
+
+        <p class="secure-note" style="margin-top: 1.5rem;">
+          Do not close this tab while verification is in progress. FamGateway sessions expire after 5 minutes.
+        </p>
+      </div>
+
+      <details class="debug-details" id="returnDebug" style="display: none;">
+        <summary>Payment debug details</summary>
+        <pre id="returnDebugBody"></pre>
+      </details>
+
+    </div>
+  </main>
+
+  <div id="vrinda-footer"></div>
+
+  <!-- Firebase Compat CDN -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <!-- Project Scripts -->
+  <script src="../assets/data/sample-data.js"></script>
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/catalog-service.js"></script>
+  <script src="../js/store-service.js"></script>
+  <script src="../js/order-service.js"></script>
+  <script src="../js/famgateway.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/commerce-ui.js"></script>
+  <script src="../js/payment-return-controller.js"></script>
+
+</body>
+</html>
