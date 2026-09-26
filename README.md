@@ -14,17 +14,33 @@ vrindahamp/
 ├── assets/                     # Static media and local data
 │   ├── images/                 # Product photography, banners, avatars, placeholders
 │   ├── icons/                  # SVG icons, favicon, app icons
-│   └── data/                   # Initial local JSON/JS sample dataset
+│   └── data/
+│       └── sample-data.js      # Local catalog seed: categories, occasions, products, testimonials, gallery, FAQ
 ├── css/                        # Design system & styles
 │   ├── variables.css           # Design tokens: palette, typography, glassmorphism, spacing, shadows
 │   ├── main.css                # Global resets, base tags, utility classes, layout grid
-│   └── components.css          # Cards, buttons, badges, modals, drawers, form elements
+│   └── components.css          # Cards, buttons, badges, modals, drawers, form elements, reviews
 ├── js/                         # Frontend Vanilla JS modules
-│   ├── sample-data.js          # Sample catalog items, categories, reviews, FAQ, gallery
-│   ├── layout.js               # Header, mobile drawer, search modal, footer injector & active states
-│   └── main.js                 # Homepage rendering, carousel/sliders, FAQ accordion, lazy loading
-├── pages/                      # Customer-facing subpages (catalog, about, contact, etc.)
+│   ├── firebase-config.js      # Firebase project keys + compat SDK bootstrap
+│   ├── auth.js                 # AuthManager: email/password + Google, profile sync, action gating
+│   ├── catalog-service.js      # VrindaCatalog: RTDB products/categories/reviews + local fallback & seeding
+│   ├── layout.js               # Header, mobile drawer, search modal, auth-gated action handling, footer
+│   ├── main.js                 # Homepage rendering, carousel/sliders, FAQ accordion, lazy loading
+│   ├── category-controller.js  # Category/catalog listing: filter chips, search, sort, custom banner
+│   ├── product-controller.js   # Product detail: SEO/OG tags, breadcrumbs, related items, reviews
+│   ├── custom-controller.js    # Custom Studio configurator: live pricing, WhatsApp handoff, design submit
+│   ├── 404-router.js           # GitHub Pages pretty-URL fallback router
+│   ├── login-controller.js     # Login/signup/Google + email verification flows
+│   └── profile-controller.js   # Customer profile, address book, verification status
+├── category/index.html         # Catalog listing route (/?slug=bouquets)
+├── product/index.html          # Product detail route (/?id=prod-001&slug=...)
+├── custom/index.html           # Custom configurator route (/?type=bouquet)
+├── pages/                      # Customer-facing subpages (login.html, profile.html, ...)
 ├── admin/                      # Role-gated admin dashboards (Super Admin, Staff, Delivery)
+├── 404.html                    # Smart fallback router for pretty URLs (SEO)
+├── database.rules.json         # Realtime Database security rules
+├── FIREBASE_SETUP.md           # Firebase project + rules setup guide
+├── ROUTING_AND_SEO.md          # Static routing architecture & SEO metadata strategy
 ├── index.html                  # Complete 14-section homepage
 └── README.md                   # Project documentation & phase roadmap
 ```
@@ -43,9 +59,18 @@ vrindahamp/
 ## 🚀 Phases Roadmap
 
 1. **Phase 1: Foundation (Completed)** — Clean GitHub Pages architecture, comprehensive CSS design system, dynamic header/footer partials, 14-section complete homepage with rich sample catalog and responsive UX.
-2. **Phase 2: Firebase Setup & Authentication** — Firebase Auth (Email/Pass + Google), session persistence, email verification gate, RTDB user/admin security rules, customer profile.
-3. **Phase 3: Catalog & Custom Configurators** — Filterable catalog, product detail page, custom configurators (Bouquet, Hamper, Keychain, Polaroids, Handwritten Letter), SEO static routing.
+2. **Phase 2: Firebase Setup & Authentication (Completed)** — Firebase Auth (Email/Pass + Google), session persistence, email verification gate, RTDB user/admin security rules, customer profile.
+3. **Phase 3: Catalog & Custom Configurators (Completed)** — Filterable/searchable catalog (`/category/`), SEO-rich product detail page (`/product/`) with reviews & related items, Custom Studio configurators for Bouquet, Hamper, Keychain, Polaroids and Handwritten Letter (`/custom/`), plus the GitHub Pages pretty-URL fallback router (`404.html`).
 4. **Phase 4: Cart, Wishlist, Checkout & FamGateway** — RTDB synced cart/wishlist, checkout with occasion notes, FamGateway payment integration.
 5. **Phase 5: Order Tracking & WhatsApp** — 11-step visual tracking timeline, WhatsApp deep-link generation, courier/local delivery tracking, customer cancellation request workflow.
 6. **Phase 6: Multi-Role Admin Dashboards** — Super Admin, Staff Admin, and Delivery Manager portals with role-based access control and order checklists.
 7. **Phase 7: SEO, Blog & Growth** — Schema markup (JSON-LD), sitemap, SEO landing pages, blog module, coupon engine, and marketing rails.
+
+---
+
+## 🔗 Static Routing, SEO & Auth Gating
+
+- **Directory-per-slug routes**: `/category/?slug=bouquets`, `/product/?id=prod-001&slug=velvet-midnight-rose-bouquet`, `/custom/?type=hamper`.
+- **Pretty URLs**: `404.html` + `js/404-router.js` resolve paths like `/bouquets/velvet-midnight-rose-bouquet` or `/custom/bouquet` to the correct static route, and lock the deployment root with a `<base>` tag so assets load even on deep 404 URLs. See `ROUTING_AND_SEO.md`.
+- **Dynamic SEO**: product and category controllers inject `<title>`, `meta[name="description"]`, canonical, and OpenGraph/product price tags at runtime.
+- **Auth gating**: cart, wishlist, tracking, reviews and custom design submission require login (reviews and design submissions additionally require a verified email). Browsing the full catalog is always public. `js/layout.js` handles gated triggers and hands verified actions to page controllers via the `vrinda:gated-action` DOM event.

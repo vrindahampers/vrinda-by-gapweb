@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Handcrafted Gift — vrindahampers</title>
+  <meta name="description" content="Personalized bespoke gift by vrindahampers. 100% made to order.">
+  <link rel="canonical" id="canonicalLink" href="../">
+  <meta property="og:type" content="product">
+  <meta property="og:site_name" content="vrindahampers">
+  <meta property="og:title" id="ogTitle" content="Handcrafted Gift — vrindahampers">
+  <meta property="og:description" id="ogDesc" content="Personalized bespoke gift by vrindahampers. 100% made to order.">
+  <meta property="og:image" id="ogImage" content="">
+  <meta property="product:price:amount" id="ogPrice" content="">
+  <meta property="product:price:currency" content="INR">
+  <meta name="theme-color" content="#c95d73">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+
+  <style>
+    .product-detail-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--space-2xl);
+      align-items: start;
+    }
+    @media (min-width: 900px) {
+      .product-detail-grid { grid-template-columns: 1.05fr 1fr; }
+    }
+    .gallery-main-frame {
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      aspect-ratio: 1 / 1;
+      background: var(--color-bg-subtle);
+      border: 1px solid var(--color-border-subtle);
+      box-shadow: var(--shadow-md);
+      position: relative;
+    }
+    .gallery-main-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform var(--transition-smooth);
+    }
+    .delivery-info-box {
+      background: var(--color-bg-subtle);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      margin-block: 1.5rem;
+      display: grid;
+      gap: 12px;
+    }
+    .delivery-info-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: var(--font-size-xs);
+      color: var(--color-text-body);
+    }
+    .breadcrumb-nav {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-muted);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="vrinda-header"></div>
+  <main class="section" style="padding-top: 1.5rem; padding-bottom: 5rem;">
+    <div class="container">
+      <nav class="breadcrumb-nav" aria-label="Breadcrumb">
+        <a href="../">Home</a> <span>/</span>
+        <a href="../category/?slug=all" id="bcCategoryLink">Catalog</a> <span>/</span>
+        <span id="bcProductName" style="color: var(--color-text-main); font-weight: 600;">Product</span>
+      </nav>
+
+      <div class="product-detail-grid">
+        <div>
+          <div class="gallery-main-frame">
+            <div id="pDetailBadges" class="product-badges"></div>
+            <img id="pDetailImg" src="" alt="Product view" class="gallery-main-img">
+          </div>
+        </div>
+
+        <div>
+          <span class="product-category" id="pDetailCategory">HANDCRAFTED</span>
+          <h1 id="pDetailTitle" style="font-size: clamp(1.8rem, 3.5vw, 2.5rem); margin-block: 6px 10px;"></h1>
+
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem;">
+            <div class="rating-stars" style="font-size: 1rem;">★★★★★</div>
+            <span id="pDetailRating" style="font-size: 13px; font-weight: 600;">4.9 (48 reviews)</span>
+            <span class="badge badge-accent" style="font-size: 11px;">100% Bespoke</span>
+          </div>
+
+          <div class="product-price-row" style="margin-bottom: 1.25rem;">
+            <span class="product-price" id="pDetailPrice" style="font-size: 2.2rem; color: var(--color-primary);">₹0</span>
+            <span class="product-original-price" id="pDetailOrigPrice" style="font-size: 1.15rem;">₹0</span>
+            <span class="badge badge-bestseller" id="pDetailDiscount" style="margin-left: 8px;">SAVE 20%</span>
+          </div>
+
+          <p id="pDetailDescription" style="font-size: var(--font-size-base); line-height: 1.6; color: var(--color-text-body); margin-bottom: 1.5rem;"></p>
+
+          <div style="background: rgba(37, 211, 102, 0.08); border: 1px solid rgba(37, 211, 102, 0.3); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: #128c7e; font-size: 13px; margin-bottom: 4px;">
+              <span>💬</span> WhatsApp Customization Flow
+            </div>
+            <p style="font-size: 12px; color: var(--color-text-body); margin: 0; line-height: 1.5;">
+              No file upload needed! After placing your order, our concierge connects with you on WhatsApp to collect your photos, songs, and custom notes.
+            </p>
+          </div>
+
+          <div style="display: flex; gap: 12px; margin-bottom: 1rem; flex-wrap: wrap;">
+            <button id="addToCartBtn" class="btn btn-primary btn-lg auth-gate-trigger" data-gated="cart" style="flex: 1.5; min-width: 180px;">
+              Add to Cart
+            </button>
+            <button id="addToWishlistBtn" class="btn btn-secondary btn-lg auth-gate-trigger" data-gated="wishlist" style="flex: 1; min-width: 150px;">
+              ❤️ Wishlist
+            </button>
+          </div>
+
+          <a id="pWhatsAppBtn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp btn-lg" style="width: 100%; margin-bottom: 1.5rem;">
+            <span>Inquire & Customize on WhatsApp</span>
+          </a>
+
+          <div class="delivery-info-box">
+            <div class="delivery-info-item">
+              <span style="font-size: 18px;">🚀</span>
+              <div>
+                <strong>Express Delivery:</strong> Same-day in Delhi NCR, Bengaluru, Mumbai via Porter/Rapido. Courier across India in 3–5 days.
+              </div>
+            </div>
+            <div class="delivery-info-item">
+              <span style="font-size: 18px;">📍</span>
+              <div>
+                <strong>11-Step Tracking:</strong> Live status tracking from photos received to delivery.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reviews Section -->
+      <section style="margin-top: 4rem; padding-top: 3rem; border-top: 1px solid var(--color-border-subtle);">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h2 style="font-size: 1.75rem; margin-bottom: 4px;">Verified Customer Reviews</h2>
+            <p style="font-size: 13px; color: var(--color-text-muted);">Real feedback from delighted gift recipients</p>
+          </div>
+          <button id="writeReviewBtn" class="btn btn-secondary btn-sm">
+            Write a Review
+          </button>
+        </div>
+
+        <div id="reviewFormCard" style="display: none; background: var(--color-bg-surface); border: 1px solid var(--color-border-light); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem;">
+          <h3 style="font-size: 1.2rem; margin-bottom: 1rem;">Share Your Experience</h3>
+          <form id="newReviewForm">
+            <div class="form-group">
+              <label class="form-label" for="reviewRating">Rating</label>
+              <select id="reviewRating" class="form-input" style="max-width: 200px;">
+                <option value="5">★★★★★ (5/5) Exceptional</option>
+                <option value="4">★★★★☆ (4/5) Very Good</option>
+                <option value="3">★★★☆☆ (3/5) Average</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="reviewComment">Review</label>
+              <textarea id="reviewComment" class="form-input" rows="3" placeholder="Tell us about the craftsmanship, delivery, and recipient reaction..." required></textarea>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button type="submit" class="btn btn-primary btn-sm">Post Review</button>
+              <button type="button" id="cancelReviewBtn" class="btn btn-secondary btn-sm">Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <div id="reviewsList"></div>
+      </section>
+
+      <!-- Related Products -->
+      <section style="margin-top: 4rem;">
+        <div class="section-header text-left">
+          <span class="section-tag">You May Also Love</span>
+          <h2 class="section-title">Complementary Curations</h2>
+        </div>
+        <div class="grid grid-cols-4" id="relatedProductsGrid"></div>
+      </section>
+    </div>
+  </main>
+  <div id="vrinda-footer"></div>
+
+  <!-- Firebase Compat Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <!-- Project Scripts -->
+  <script src="../assets/data/sample-data.js"></script>
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/catalog-service.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/product-controller.js"></script>
+
+</body>
+</html>
+

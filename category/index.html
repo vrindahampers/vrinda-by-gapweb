@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gift Collections & Categories — vrindahampers</title>
+  <meta name="description" content="Explore handcrafted bouquets, luxury hampers, polaroid prints, custom keychains, and letters.">
+  <meta name="theme-color" content="#c95d73">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+
+  <style>
+    .filter-chip {
+      padding: 0.5rem 1.15rem;
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-xs);
+      font-weight: 600;
+      border: 1px solid var(--color-border-light);
+      background: var(--color-bg-surface);
+      color: var(--color-text-body);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all var(--transition-fast);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .filter-chip:hover, .filter-chip.active {
+      background: var(--color-primary);
+      color: #ffffff;
+      border-color: var(--color-primary);
+      box-shadow: 0 4px 12px rgba(201, 93, 115, 0.25);
+    }
+    .catalog-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-md);
+      padding: 1.25rem;
+      border-radius: var(--radius-lg);
+      background: var(--glass-bg);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--color-border-subtle);
+      margin-bottom: var(--space-xl);
+    }
+    .sort-select {
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border-light);
+      background: var(--color-bg-surface);
+      font-size: var(--font-size-xs);
+      font-weight: 600;
+      color: var(--color-text-main);
+      outline: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="vrinda-header"></div>
+
+  <main class="section" style="padding-top: 2.5rem; padding-bottom: 5rem;">
+    <div class="container">
+      
+      <!-- Category Banner -->
+      <div style="text-align: center; max-width: 760px; margin-inline: auto; margin-bottom: 2.5rem;">
+        <span class="section-tag" id="categoryBadge">Gifting Studio</span>
+        <h1 id="categoryPageTitle" style="font-size: clamp(2rem, 4vw, 3rem); margin-top: 6px; margin-bottom: 12px;">All Collections</h1>
+        <p id="categoryPageDescription" class="text-lead" style="font-size: 1.05rem;">
+          Explore our handcrafted everlasting florals, curated luxury trunk boxes, Spotify glass keepsakes, and calligraphy letters.
+        </p>
+      </div>
+
+      <!-- Quick Custom Configurator Banner -->
+      <div id="customConfiguratorBanner" style="display: none; background: linear-gradient(135deg, #faedf0 0%, #fbf5ea 100%); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-xl); padding: 1.5rem 2rem; margin-bottom: 2rem; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+        <div>
+          <span class="badge badge-accent" style="margin-bottom: 4px;">Custom Studio</span>
+          <h3 id="customBannerTitle" style="font-size: 1.3rem; margin-bottom: 4px;">Design your own bespoke gift</h3>
+          <p id="customBannerDesc" style="font-size: 13px; color: var(--color-text-muted);">Pick colors, wrapper styles, scents, and notes with our interactive builder.</p>
+        </div>
+        <a id="customBannerLink" href="../custom/" class="btn btn-primary btn-sm">Open Configurator &rarr;</a>
+      </div>
+
+      <!-- Filter Chips -->
+      <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; margin-bottom: 1.5rem; scrollbar-width: thin;" id="categoryFilterChips">
+        <a href="?slug=all" class="filter-chip active" data-slug="all">All Gifts</a>
+      </div>
+
+      <!-- Controls -->
+      <div class="catalog-controls">
+        <div style="font-size: var(--font-size-sm); color: var(--color-text-muted);">
+          Showing <strong id="itemCount" style="color: var(--color-text-main);">0</strong> handcrafted creations
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <input type="text" id="catalogSearch" class="form-input" placeholder="Search in collection..." style="width: 220px; padding: 0.5rem 0.85rem; font-size: 13px;">
+          <select id="catalogSort" class="sort-select" aria-label="Sort products">
+            <option value="featured">Featured Curations</option>
+            <option value="price-low">Price: Low to High</option>
+            <option value="price-high">Price: High to Low</option>
+            <option value="rating">Customer Rating</option>
+            <option value="newest">Newest Additions</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Product Grid -->
+      <div class="grid grid-cols-4" id="categoryProductsGrid"></div>
+
+      <!-- Empty State -->
+      <div id="noProductsNotice" style="display: none; text-align: center; padding: 4rem 1rem;">
+        <span style="font-size: 3rem;">🎁</span>
+        <h3 style="margin-top: 1rem; margin-bottom: 6px;">No matching gifts found</h3>
+        <p style="color: var(--color-text-muted); font-size: 14px; margin-bottom: 1.5rem;">Try adjusting your search terms or filters.</p>
+        <button id="resetFiltersBtn" class="btn btn-secondary btn-sm">Reset Filters</button>
+      </div>
+
+    </div>
+  </main>
+  <div id="vrinda-footer"></div>
+
+  <!-- Firebase Compat Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <!-- Project Modules -->
+  <script src="../assets/data/sample-data.js"></script>
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/catalog-service.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/category-controller.js"></script>
+</body>
+</html>
+

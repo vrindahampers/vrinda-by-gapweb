@@ -81,3 +81,22 @@ To assign an Admin or Staff or Delivery Manager:
 - **Super Admin**: Set `"role": "superadmin"` in RTDB under their user's `users/$uid/role` and add their UID under `admins/$uid: true`.
 - **Staff Admin**: Set `"role": "staff"` under `users/$uid/role` and `staff/$uid: true`.
 - **Delivery Manager**: Set `"role": "delivery"` under `users/$uid/role` and `deliveryManagers/$uid: true`.
+
+---
+
+## 6. Realtime Database Node Map
+
+`database.rules.json` protects the following nodes:
+
+| Node | Access |
+| --- | --- |
+| `users/$uid` | Owner read/write; Admins read all; role field only writable by Admins |
+| `admins`, `staff`, `deliveryManagers` | Staff registries; only Super Admins write |
+| `products`, `categories` | Public read; Admin-only write (catalog auto-seeds from `sample-data.js` when empty) |
+| `reviews/$productId` | Public read; write requires `auth.token.email_verified == true` |
+| `cart/$uid`, `wishlist/$uid` | Owner-only read/write (Phase 4) |
+| `orders`, `cancellationRequests` | Customer-owned reads, staff/admin workflow (Phase 5) |
+| `customRequests/$uid` | Owner read/write (verified email required); Admins & Staff read all — Custom Studio designs |
+
+> **Note:** Verified-email gates match the Phase 0 business rules — reviews and custom design
+> submissions are rejected by the database itself if the customer has not verified their email.

@@ -68,6 +68,13 @@
       // Publicly readable; verified customers can submit reviews; Staff/Admins can moderate
       ".read": true,
       ".write": "auth != null && auth.token.email_verified == true"
+    },
+    "customRequests": {
+      // Customers submit bespoke configurator designs; Staff/Admins review them
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists())",
+        ".write": "auth != null && auth.uid === $uid && auth.token.email_verified == true"
+      }
     }
   }
 }

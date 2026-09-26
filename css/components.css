@@ -121,6 +121,14 @@
   display: inline-flex;
   align-items: center;
   padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
 /* --- Product Cards --- */
 .product-card {
   position: relative;
@@ -830,14 +838,6 @@
   margin-bottom: 6px;
 }
 
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  line-height: 1;
-}
-
 .badge-primary {
   background-color: var(--color-primary-soft);
   color: var(--color-primary-dark);
@@ -862,4 +862,31 @@
 .badge-trending {
   background-color: #fce4ec;
   color: #880e4f;
+}
+
+/* --- Product Reviews --- */
+.review-card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  margin-bottom: var(--space-sm);
+}
+
+.review-card:last-child {
+  margin-bottom: 0;
+}
+
+.review-card .review-comment {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-body);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.reviews-empty {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--space-lg) 0;
 }

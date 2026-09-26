@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Custom Gift Configurator — vrindahampers</title>
+  <meta name="description" content="Design your own bespoke gift: everlasting bouquets, luxury hampers, Spotify keychains, retro polaroids, and wax-sealed letters.">
+  <meta name="theme-color" content="#c95d73">
+  <link rel="canonical" id="canonicalLink" href="../custom/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="vrindahampers">
+  <meta property="og:title" id="ogTitle" content="Custom Gift Configurator — vrindahampers">
+  <meta property="og:description" id="ogDesc" content="Build a bespoke gift step by step and confirm every detail on WhatsApp.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+
+  <style>
+    .configurator-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--space-2xl);
+      align-items: start;
+    }
+    @media (min-width: 960px) {
+      .configurator-grid { grid-template-columns: 1.4fr 1fr; }
+    }
+    .config-card {
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 1.75rem;
+      box-shadow: var(--shadow-sm);
+    }
+    .config-step {
+      padding-bottom: 1.5rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px dashed var(--color-border-light);
+    }
+    .config-step:last-of-type {
+      padding-bottom: 0;
+      margin-bottom: 0;
+      border-bottom: 0;
+    }
+    .config-step-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--color-text-main);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .config-step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--color-primary-soft);
+      color: var(--color-primary-dark);
+      font-size: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .option-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .option-chip {
+      padding: 0.55rem 1rem;
+      border-radius: var(--radius-full);
+      border: 1px solid var(--color-border-light);
+      background: var(--color-bg-surface);
+      font-size: var(--font-size-xs);
+      font-weight: 600;
+      color: var(--color-text-body);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .option-chip:hover {
+      border-color: var(--color-primary);
+      color: var(--color-primary-dark);
+    }
+    .option-chip.active {
+      background: var(--color-primary);
+      border-color: var(--color-primary);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(201, 93, 115, 0.25);
+    }
+    .addon-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0.7rem 0;
+      border-bottom: 1px solid var(--color-border-subtle);
+      cursor: pointer;
+    }
+    .addon-row:last-child { border-bottom: 0; }
+    .addon-row input { accent-color: var(--color-primary); width: 16px; height: 16px; cursor: pointer; }
+    .summary-card {
+      position: sticky;
+      top: 96px;
+    }
+    .summary-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: var(--font-size-xs);
+      color: var(--color-text-body);
+      padding: 6px 0;
+      border-bottom: 1px dashed var(--color-border-subtle);
+    }
+    .summary-line strong { color: var(--color-text-main); }
+  </style>
+</head>
+<body>
+  <div id="vrinda-header"></div>
+
+  <main class="section" style="padding-top: 2rem; padding-bottom: 5rem;">
+    <div class="container">
+      <nav class="breadcrumb-nav" style="font-size: var(--font-size-xs); color: var(--color-text-muted); margin-bottom: 1.5rem; display: flex; gap: 8px; align-items: center;" aria-label="Breadcrumb">
+        <a href="../">Home</a> <span>/</span>
+        <a href="../category/?slug=all">Catalog</a> <span>/</span>
+        <span style="color: var(--color-text-main); font-weight: 600;">Custom Studio</span>
+      </nav>
+
+      <div style="text-align: center; max-width: 720px; margin-inline: auto; margin-bottom: 2.5rem;">
+        <span class="section-tag">Custom Studio</span>
+        <h1 style="font-size: clamp(2rem, 4vw, 3rem); margin-top: 6px; margin-bottom: 12px;">Design Your Own <span id="cfTypeHeadline">Bouquet</span></h1>
+
+      <div class="configurator-grid">
+        <!-- Builder Column -->
+        <div class="config-card">
+          <div class="config-step">
+            <div class="config-step-title"><span class="config-step-num">1</span> Occasion & Recipient</div>
+            <div style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" for="cfOccasion">Celebrating</label>
+                <select id="cfOccasion" class="form-input">
+                  <option value="Birthday">Birthday</option>
+                  <option value="Anniversary">Anniversary</option>
+                  <option value="Valentine's Day">Valentine's Day</option>
+                  <option value="Friendship / Besties">Friendship / Besties</option>
+                  <option value="Just Because">Just Because</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label" for="cfRecipient">Their Name (for personalization)</label>
+                <input type="text" id="cfRecipient" class="form-input" placeholder="e.g. Aarav 💛" maxlength="40">
+              </div>
+            </div>
+          </div>
+
+          <div class="config-step">
+            <div class="config-step-title"><span class="config-step-num">2</span> Choose Your Base Design</div>
+            <div class="option-chip-row" id="cfBaseOptions"></div>
+          </div>
+
+          <div class="config-step">
+            <div class="config-step-title"><span class="config-step-num">3</span> Colour Palette</div>
+            <div class="option-chip-row" id="cfPaletteOptions"></div>
+          </div>
+
+          <div class="config-step">
+            <div class="config-step-title"><span class="config-step-num">4</span> Add-On Enhancements</div>
+            <div id="cfAddonList"></div>
+          </div>
+
+          <div class="config-step">
+            <div class="config-step-title"><span class="config-step-num">5</span> Your Personal Message</div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label" for="cfNote">Note to be handwritten / printed on the gift</label>
+              <textarea id="cfNote" class="form-input" rows="3" maxlength="400" placeholder="Write the exact words you want them to read..."></textarea>
+              <p style="font-size: 11px; color: var(--color-text-muted); margin-top: 6px;">
+                📸 Photos, songs and reference images are collected by our concierge on WhatsApp after you submit this design.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Summary Column -->
+        <aside class="config-card summary-card">
+          <h3 style="font-size: 1.25rem; margin-bottom: 12px;">Your Bespoke Design</h3>
+          <div id="cfSummaryLines"></div>
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 1rem; margin-bottom: 1.25rem;">
+            <span style="font-size: 13px; font-weight: 600; color: var(--color-text-muted);">Estimated Total</span>
+            <span id="cfTotalPrice" style="font-size: 1.6rem; font-weight: 700; color: var(--color-primary);">₹0</span>
+          </div>
+
+          <button id="cfSubmitBtn" class="btn btn-primary btn-lg" style="width: 100%; margin-bottom: 10px;">
+            Submit My Design
+          </button>
+          <a id="cfWhatsAppBtn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp btn-lg" style="width: 100%;">
+            Confirm on WhatsApp
+          </a>
+
+          <ul style="list-style: none; padding: 0; margin: 1.5rem 0 0; display: grid; gap: 10px; font-size: 12px; color: var(--color-text-body);">
+            <li>✅ Final quote confirmed by our team before payment.</li>
+            <li>✅ Free digital mockup approval on WhatsApp.</li>
+            <li>✅ Same-day delivery in select metros via Porter/Rapido.</li>
+          </ul>
+        </aside>
+      </div>
+
+        <p class="text-lead" id="cfTypeDescription" style="font-size: 1.05rem;">
+          Choose a design, palette, and add-ons — then confirm your photos and message on WhatsApp.
+        </p>
+      </div>
+
+      <div class="option-chip-row" id="cfTypeChips" style="justify-content: center; margin-bottom: 2rem;"></div>
+    </div>
+  </main>
+  <div id="vrinda-footer"></div>
+
+  <!-- Firebase Compat Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <!-- Project Scripts -->
+  <script src="../assets/data/sample-data.js"></script>
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/catalog-service.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/custom-controller.js"></script>
+
+</body>
+</html>
+

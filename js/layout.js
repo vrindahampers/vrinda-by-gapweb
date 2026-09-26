@@ -11,8 +11,21 @@
     const footerPlaceholder = document.getElementById('vrinda-footer');
 
     const currentPath = window.location.pathname;
-    const isSubpage = currentPath.includes('/pages/') || currentPath.includes('/admin/');
-    const basePath = isSubpage ? '../' : './';
+    // Every directory-level route needs its own relative prefix back to the site root.
+    const SECTION_DIRS = ['/pages/', '/admin/', '/category/', '/product/', '/custom/'];
+    const basePath = computeBasePath();
+
+    function computeBasePath() {
+      // A <base href> (used by 404.html on deep pretty URLs) already fixes the root.
+      if (document.querySelector && document.querySelector('base')) return './';
+
+      const sectionDir = SECTION_DIRS.find(dir => currentPath.includes(dir));
+      if (!sectionDir) return './';
+
+      const remainder = currentPath.slice(currentPath.indexOf(sectionDir) + sectionDir.length);
+      const nestedLevels = remainder.split('/').filter(Boolean).length - 1;
+      return '../'.repeat(1 + Math.max(0, nestedLevels));
+    }
 
     // 1. Inject Header HTML
     if (headerPlaceholder) {
@@ -270,19 +283,43 @@
       `).join('');
     });
 
-    // Auth gating notices per Phase 0 Business Rules
+    // Auth gating for protected actions per Phase 0 Business Rules
     document.querySelectorAll('.auth-gate-trigger').forEach(trigger => {
       trigger.addEventListener('click', (e) => {
         e.preventDefault();
         const gatedAction = trigger.getAttribute('data-gated') || 'account';
-        const modalMessage = {
-          cart: 'Login is required to access your cart and checkout.',
-          wishlist: 'Login is required to save gifts to your wishlist.',
-          tracking: 'Login is required to view live order tracking.',
-          account: 'Account login & Firebase Auth wiring is coming in Phase 2!'
-        }[gatedAction] || 'Login is required for this action.';
+        const gate = window.VrindaAuth
+          ? window.VrindaAuth.canPerformGatedAction(gatedAction)
+          : {
+              allowed: false,
+              reason: 'unauthenticated',
+              message: 'Account services are still initializing. Please try again in a moment.'
+            };
 
-        alert(`vrindahampers Notice:\n\n${modalMessage}\n\n(Browsing is 100% public. Auth wiring will activate in Phase 2)`);
+        if (!gate.allowed) {
+          alert(`vrindahampers Notice:\n\n${gate.message}\n\n(Browsing the full catalog is always 100% public.)`);
+          if (gate.reason === 'unauthenticated') {
+            window.location.href = `${basePath}pages/login.html?redirect=${encodeURIComponent(window.location.href)}`;
+          } else if (gate.reason === 'unverified_email') {
+            window.location.href = `${basePath}pages/profile.html`;
+          }
+          return;
+        }
+
+        // Authenticated (and verified where required) — let page controllers pick the action up.
+        document.dispatchEvent(new CustomEvent('vrinda:gated-action', {
+          detail: { action: gatedAction, trigger: trigger }
+        }));
+
+        const pendingNotice = {
+          cart: 'Cart, checkout and FamGateway payments release in Phase 4 of our rollout.',
+          wishlist: 'Wishlist account sync releases in Phase 4 of our rollout.',
+          tracking: 'Live 11-step order tracking releases in Phase 5 of our rollout.'
+        }[gatedAction];
+
+        if (pendingNotice) {
+          alert(`vrindahampers Notice:\n\n${pendingNotice}\n\nYour account is verified — this feature activates in the next release.`);
+        }
       });
     });
     // Real-time Auth UI State Observer

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Finding Your Gift — vrindahampers</title>
+  <meta name="description" content="vrindahampers smart routing: taking you to the exact handcrafted gift you were looking for.">
+  <meta name="robots" content="noindex, follow">
+  <meta name="theme-color" content="#c95d73">
+
+  <script>
+    // GitHub Pages serves this file at the requested deep URL (e.g. /project/bouquets/red-rose),
+    // so relative asset paths would resolve incorrectly. Derive the real site root here and lock
+    // it in with a <base> tag before any stylesheet or script is requested.
+    (function () {
+      var ROUTE_KEYWORDS = ['category', 'product', 'custom', 'pages', 'admin', 'index.html', 'index'];
+      var CATEGORY_SLUGS = ['bouquets', 'hampers', 'keychains', 'polaroids', 'handwritten-letters',
+        'personalized-gifts', 'birthday-gifts', 'anniversary-gifts', 'valentines-gifts', 'friendship-gifts'];
+      var ASSET_DIRS = ['css', 'js', 'assets', 'images', 'icons'];
+
+      var parts = window.location.pathname.split('/').filter(Boolean);
+      var index = -1;
+      for (var i = 0; i < parts.length; i++) {
+        var seg = parts[i].toLowerCase();
+        if (ROUTE_KEYWORDS.indexOf(seg) !== -1 || CATEGORY_SLUGS.indexOf(seg) !== -1 || ASSET_DIRS.indexOf(seg) !== -1) {
+          index = i;
+          break;
+        }
+      }
+
+      var root = '/';
+      if (index > 0) {
+        root = '/' + parts.slice(0, index).join('/') + '/';
+      } else if (index === -1 && parts.length > 1) {
+        // Unknown deep path — assume the first segment is the deployment root folder.
+        root = '/' + parts[0] + '/';
+      }
+      document.write('<base href="' + root + '">');
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./css/variables.css">
+  <link rel="stylesheet" href="./css/main.css">
+  <link rel="stylesheet" href="./css/components.css">
+
+  <style>
+    .router-card {
+      max-width: 640px;
+      margin-inline: auto;
+      text-align: center;
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 2.5rem 2rem;
+      box-shadow: var(--shadow-lg);
+    }
+    .router-spinner {
+      width: 38px;
+      height: 38px;
+      margin: 0 auto 1.25rem;
+      border: 3px solid var(--color-primary-soft);
+      border-top-color: var(--color-primary);
+      border-radius: 50%;
+      animation: router-spin 0.9s linear infinite;
+    }
+    @keyframes router-spin {
+      to { transform: rotate(360deg); }
+    }
+    .router-suggestion {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-xs);
+      color: var(--color-text-body);
+      margin-bottom: 8px;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <div id="vrinda-header"></div>
+
+  <main class="section" style="padding-block: 4rem 5rem;">
+    <div class="container">
+      <div class="router-card">
+        <div class="router-spinner" id="routerSpinner"></div>
+        <span class="section-tag">Smart Routing</span>
+        <h1 style="font-size: clamp(1.8rem, 4vw, 2.5rem); margin-block: 8px 12px;" id="routerTitle">
+          Finding your handcrafted gift…
+        </h1>
+        <p style="font-size: var(--font-size-sm); color: var(--color-text-body); margin-bottom: 1.75rem;" id="routerMessage">
+          One moment while we take you to the exact page you were looking for.
+        </p>
+
+        <div id="routerSuggestions" style="margin-bottom: 1.5rem;"></div>
+
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+          <a href="./index.html" class="btn btn-primary">Back to Homepage</a>
+          <a href="./category/?slug=all" class="btn btn-secondary">Browse Full Catalog</a>
+          <a href="https://wa.me/919876543210?text=Hi%20vrindahampers!%20I%20could%20not%20find%20the%20gift%20page%20I%20wanted." target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp">
+            Ask on WhatsApp
+          </a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="vrinda-footer"></div>
+
+  <script src="./assets/data/sample-data.js"></script>
+  <script src="./js/layout.js"></script>
+  <script src="./js/404-router.js"></script>
+</body>
+</html>

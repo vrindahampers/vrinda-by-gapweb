@@ -53,6 +53,40 @@ window.VRINDA_DATA = {
       image: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=700&q=80',
       description: 'One-of-a-kind treasures customized with names, dates, and secret codes.'
     }
+    ,
+    {
+      id: 'birthday-gifts',
+      name: 'Birthday Gifts',
+      slug: 'birthday-gifts',
+      count: '25 Curations',
+      image: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=700&q=80',
+      description: 'Make milestone birthday moments unforgettable with customized gift boxes and blooms.'
+    },
+    {
+      id: 'anniversary-gifts',
+      name: 'Anniversary Gifts',
+      slug: 'anniversary-gifts',
+      count: '20 Curations',
+      image: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&w=700&q=80',
+      description: 'Romantic milestones commemorated with eternal velvet flowers, letters, and custom photo plaques.'
+    },
+    {
+      id: 'valentines-gifts',
+      name: "Valentine's Gifts",
+      slug: 'valentines-gifts',
+      count: '30 Curations',
+      image: 'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?auto=format&fit=crop&w=700&q=80',
+      description: 'Soul-stirring romantic expressions designed with everlasting crimson blooms and intimate notes.'
+    },
+    {
+      id: 'friendship-gifts',
+      name: 'Friendship Gifts',
+      slug: 'friendship-gifts',
+      count: '15 Curations',
+      image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=700&q=80',
+      description: 'Cute, quirky, and heartwarming treasures crafted for besties and soulmates.'
+    }
+
   ],
 
   occasions: [
@@ -90,6 +124,7 @@ window.VRINDA_DATA = {
     {
       id: 'prod-001',
       name: 'Velvet Midnight Rose Bouquet',
+      slug: 'velvet-midnight-rose-bouquet',
       category: 'bouquets',
       categoryName: 'Handcrafted Bouquets',
       price: 1899,
@@ -107,6 +142,7 @@ window.VRINDA_DATA = {
     {
       id: 'prod-002',
       name: 'The Royal Romance Luxury Hamper',
+      slug: 'the-royal-romance-luxury-hamper',
       category: 'hampers',
       categoryName: 'Luxury Hampers',
       price: 3499,
@@ -124,6 +160,7 @@ window.VRINDA_DATA = {
     {
       id: 'prod-003',
       name: 'Custom Spotify Acrylic Plaque & Stand',
+      slug: 'custom-spotify-acrylic-plaque-stand',
       category: 'personalized-gifts',
       categoryName: 'Bespoke Keepsakes',
       price: 999,
@@ -141,6 +178,7 @@ window.VRINDA_DATA = {
     {
       id: 'prod-004',
       name: 'Wax-Sealed Vintage Calligraphy Letter',
+      slug: 'wax-sealed-vintage-calligraphy-letter',
       category: 'handwritten-letters',
       categoryName: 'Handwritten Letters',
       price: 699,
@@ -159,6 +197,7 @@ window.VRINDA_DATA = {
     {
       id: 'prod-005',
       name: 'Retro Polaroid Mini-Tin Set (16 Prints)',
+      slug: 'retro-polaroid-mini-tin-set-16-prints',
       category: 'polaroids',
       categoryName: 'Polaroids & Frames',
       price: 549,
@@ -176,6 +215,7 @@ window.VRINDA_DATA = {
     {
       id: 'prod-006',
       name: 'Enchanted Butterfly Bell Jar Dome',
+      slug: 'enchanted-butterfly-bell-jar-dome',
       category: 'bouquets',
       categoryName: 'Handcrafted Bouquets',
       price: 1599,
@@ -193,6 +233,7 @@ window.VRINDA_DATA = {
     {
       id: 'prod-007',
       name: 'Spotify Code & Initials Charm Keychain',
+      slug: 'spotify-code-initials-charm-keychain',
       category: 'keychains',
       categoryName: 'Custom Keychains',
       price: 399,
@@ -210,6 +251,7 @@ window.VRINDA_DATA = {
     {
       id: 'prod-008',
       name: 'Cosy Evening Artisanal Coffee Hamper',
+      slug: 'cosy-evening-artisanal-coffee-hamper',
       category: 'hampers',
       categoryName: 'Luxury Hampers',
       price: 2799,
