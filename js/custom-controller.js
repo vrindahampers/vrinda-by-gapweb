@@ -108,6 +108,29 @@
     }
   };
 
+  // Open-ended option: the customer names the gift themselves, and that name is
+  // what we hand to fulfilment and print on the order / WhatsApp card.
+  CONFIGS.gift = {
+    label: 'Gift',
+    headline: 'Your Own Gift Idea',
+    description: 'Tell us the gift you have in mind and give it a name. Our designer crafts it to your brief and confirms the final quote on WhatsApp.',
+    image: 'https://images.unsplash.com/photo-1512909006721-3d6018887383?auto=format&fit=crop&w=700&q=80',
+    basePrice: 999,
+    requiresGiftName: true,
+    bases: [
+      { id: 'bespoke-box', label: 'Bespoke Gift Box (designed for you)', price: 1499 },
+      { id: 'keepsake-set', label: 'Keepsake Set (2-3 pieces)', price: 1199 },
+      { id: 'memory-frame', label: 'Framed Memory Piece', price: 899 },
+      { id: 'surprise-parcel', label: 'Surprise Parcel (contents discussed on WhatsApp)', price: 699 }
+    ],
+    palettes: ['Blush Pink', 'Ivory White', 'Emerald Green', 'Midnight Blue', 'Gold & Cream'],
+    addons: [
+      { id: 'wax-letter', label: 'Wax-sealed handwritten letter 📜', price: 349 },
+      { id: 'polaroid-prints', label: '3 personalized polaroid prints 📸', price: 299 },
+      { id: 'gift-wrap', label: 'Luxury gift wrap & ribbon 🎀', price: 149 }
+    ]
+  };
+
   let currentType = 'bouquet';
   let selection = { base: null, palette: null, addons: [] };
   let submitting = false;
@@ -159,6 +182,10 @@
     if (headline) headline.textContent = cfg.headline;
     if (desc) desc.textContent = cfg.description;
     document.title = `Design Your Own ${cfg.label} — vrindahampers`;
+
+    // The gift-name field only exists for the open-ended "Gift" type.
+    const giftGroup = document.getElementById('cfGiftNameGroup');
+    if (giftGroup) giftGroup.style.display = cfg.requiresGiftName ? 'block' : 'none';
 
     renderBaseOptions();
     renderPaletteOptions();
@@ -258,6 +285,7 @@
       typeLabel: cfg.label,
       occasion: document.getElementById('cfOccasion')?.value || 'Birthday',
       recipient: document.getElementById('cfRecipient')?.value.trim() || '',
+      giftName: cfg.requiresGiftName ? (document.getElementById('cfGiftName')?.value.trim() || '') : '',
       base: base.id,
       baseLabel: base.label,
       palette: selection.palette,
@@ -278,6 +306,7 @@
         <div class="summary-line"><span>Gift Type</span><strong>${data.typeLabel}</strong></div>
         <div class="summary-line"><span>Occasion</span><strong>${data.occasion}</strong></div>
         ${data.recipient ? `<div class="summary-line"><span>Personalized For</span><strong>${data.recipient}</strong></div>` : ''}
+        ${data.giftName ? `<div class="summary-line"><span>Gift Name</span><strong>${escapeHtml(data.giftName)}</strong></div>` : ''}
         <div class="summary-line"><span>Base Design</span><strong>${data.baseLabel}</strong></div>
         <div class="summary-line"><span>Palette</span><strong>${data.palette}</strong></div>
         <div class="summary-line"><span>Add-Ons</span><strong>${data.addons.length ? data.addons.length + ' selected' : 'None'}</strong></div>
@@ -300,6 +329,7 @@
       `Hi vrindahampers! I built a custom ${data.typeLabel} on your Custom Studio:`,
       `• Occasion: ${data.occasion}`,
       data.recipient ? `• Personalized for: ${data.recipient}` : null,
+      data.giftName ? `• Gift name (please use this on the order): ${data.giftName}` : null,
       `• Base design: ${data.baseLabel}`,
       `• Palette: ${data.palette}`,
       `• Add-ons: ${data.addons.length ? data.addons.join(', ') : 'None'}`,
@@ -317,7 +347,7 @@
   }
 
   function setupListeners() {
-    ['cfOccasion', 'cfRecipient', 'cfNote'].forEach(id => {
+    ['cfOccasion', 'cfRecipient', 'cfGiftName', 'cfNote'].forEach(id => {
       const el = document.getElementById(id);
       const evt = el && el.tagName === 'SELECT' ? 'change' : 'input';
       el?.addEventListener(evt, updateSummary);
@@ -351,6 +381,7 @@
         <div class="summary-line"><span>Gift Type</span><strong>${escapeHtml(data.typeLabel)}</strong></div>
         <div class="summary-line"><span>Occasion</span><strong>${escapeHtml(data.occasion)}</strong></div>
         ${data.recipient ? `<div class="summary-line"><span>Personalized For</span><strong>${escapeHtml(data.recipient)}</strong></div>` : ''}
+        ${data.giftName ? `<div class="summary-line"><span>Gift Name</span><strong>${escapeHtml(data.giftName)}</strong></div>` : ''}
         <div class="summary-line"><span>Base Design</span><strong>${escapeHtml(data.baseLabel)}</strong></div>
         <div class="summary-line"><span>Palette</span><strong>${escapeHtml(data.palette)}</strong></div>
         <div class="summary-line"><span>Add-Ons</span><strong>${escapeHtml(data.addons.length ? data.addons.join(', ') : 'None')}</strong></div>
@@ -376,6 +407,14 @@
   async function submitDesign() {
     if (submitting) return;
     const data = buildSummaryData();
+
+    // The "Gift" type is meaningless without the name fulfilment must print.
+    if (CONFIGS[currentType] && CONFIGS[currentType].requiresGiftName && !data.giftName) {
+      const field = document.getElementById('cfGiftName');
+      if (field && typeof field.focus === 'function') field.focus();
+      alert('vrindahampers Notice:\n\nPlease give your gift a name — that is the name we put on the order and hand to the customer.');
+      return;
+    }
 
     if (window.VrindaAuth) {
       const gate = window.VrindaAuth.canPerformGatedAction('customization');

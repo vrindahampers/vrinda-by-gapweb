@@ -46,6 +46,7 @@
     // Live overrides pushed from the admin-managed /settings + /seo RTDB nodes.
     _rtdbConfig: {},
     _seo: {},
+    _faqs: [],
     // Resolved by the first /cart/{uid} snapshot so pages can await the real cart
     // instead of painting a false "empty cart" while the read is still in flight.
     _cartReady: null,
@@ -61,6 +62,18 @@
 
     seo: function () {
       return this._seo || {};
+    },
+
+    /* ------------------------------------------------------------------- FAQs */
+
+    /**
+     * Homepage FAQ content, admin-managed in the Super Admin portal and stored at
+     * /faqs/{id}. The bundled sample answers render until the node is populated
+     * (or if the read is denied / offline).
+     */
+    faqList: function () {
+      if (this._faqs && this._faqs.length) return this._faqs;
+      return (window.VRINDA_DATA && window.VRINDA_DATA.faqs) || [];
     },
 
     money: function (value) {
@@ -91,6 +104,7 @@
 
     this.bindDelegatedActions();
     this.loadStoreSettings();
+    this.loadFaqs();
 
     const auth = window.VrindaAuth;
     if (auth && typeof auth.onAuthChange === 'function') {
@@ -894,6 +908,25 @@
         this.moveWishlistToCart(moveBtn.getAttribute('data-product-id'));
       }
     });
+  };
+
+  /**
+   * Live subscription to the admin-managed /faqs node. Until it answers (or if
+   * the read is denied/offline) faqList() falls back to the bundled answers.
+   */
+  Store.loadFaqs = function () {
+    const db = this._db();
+    if (!db) return;
+
+    db.ref('faqs').on('value', (snap) => {
+      const val = snap.val() || {};
+      const list = Object.keys(val)
+        .map((id) => Object.assign({ id: id }, val[id]))
+        .filter((f) => f && f.q && f.active !== false);
+      list.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+      this._faqs = list;
+      document.dispatchEvent(new CustomEvent('vrinda:faqs-changed', { detail: list }));
+    }, (err) => console.warn('FAQ sync warning:', err && err.message));
   };
 
   /**

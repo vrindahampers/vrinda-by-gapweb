@@ -16,6 +16,11 @@
   let activeChecklistOrderId = null;
   let staffLoadError = null;
   let editingCouponCode = null;
+  let allCustomRequests = [];
+  let customLoadError = null;
+  let allFaqs = [];
+  let faqLoadError = null;
+  let editingFaqId = null;
 
   async function initSuperAdmin() {
     if (!window.VrindaAuth) return;
@@ -109,10 +114,32 @@
       });
     }
 
-    // 6. Products initial load
+    // 6. Custom Studio designs
+    if (window.VrindaAdmin && window.VrindaAdmin.listenToCustomRequests) {
+      window.VrindaAdmin.listenToCustomRequests((requests) => {
+        allCustomRequests = requests;
+        renderCustomRequestsTable();
+      }, () => {
+        customLoadError = 'Could not load Custom Studio designs. Publish the database rules first:\nfirebase deploy --only database';
+        renderCustomRequestsTable();
+      });
+    }
+
+    // 7. FAQs (homepage content)
+    if (window.VrindaAdmin && window.VrindaAdmin.listenToFaqs) {
+      window.VrindaAdmin.listenToFaqs((faqs) => {
+        allFaqs = faqs;
+        renderFaqsTable();
+      }, () => {
+        faqLoadError = 'Could not load FAQs. Publish the database rules first:\nfirebase deploy --only database';
+        renderFaqsTable();
+      });
+    }
+
+    // 8. Products initial load
     loadProducts();
 
-    // 7. Settings initial load
+    // 9. Settings initial load
     loadSettings();
 
     // Filters and Search
@@ -405,12 +432,12 @@
             <img src="${p.image}" alt="${p.name}" style="width: 36px; height: 36px; border-radius: var(--radius-sm); object-fit: cover;">
             <div>
               <strong>${p.name}</strong>
-              <div style="font-size: 11px; color: var(--color-text-muted);">${p.id}</div>
+              <div style="font-size: 11px; color: var(--color-text-muted);">${p.id}${p.active === false ? ' · hidden from storefront' : ''}${p.stock ? ' · stock ' + p.stock : ''}</div>
             </div>
           </div>
         </td>
         <td><span class="badge badge-subtle">${p.category}</span></td>
-        <td><strong>₹${(p.price || 0).toLocaleString('en-IN')}</strong></td>
+        <td><strong>₹${(p.price || 0).toLocaleString('en-IN')}</strong>${(p.originalPrice > p.price) ? `<div style="font-size: 11px; color: var(--color-text-muted); text-decoration: line-through;">₹${p.originalPrice.toLocaleString('en-IN')}</div>` : ''}</td>
         <td>${(p.customizable || p.isPersonalized) ? '✅ Yes' : '—'}</td>
         <td>${(p.bestseller || p.isBestSeller) ? '⭐ Yes' : '—'}</td>
         <td>
@@ -481,6 +508,182 @@
         const rid = btn.getAttribute('data-review-id');
         if (!confirm('Remove this customer review?')) return;
         await window.VrindaCatalog.deleteReview(pid, rid);
+      });
+    });
+  }
+
+  /* ------------------------------------------------------------- FAQ TABLE */
+  function renderFaqsTable() {
+    const tbody = document.getElementById('faqTbody');
+    if (!tbody) return;
+
+    if (faqLoadError) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--color-error); white-space: pre-line;">${faqLoadError}</td></tr>`;
+      return;
+    }
+
+    if (!allFaqs.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem;">
+        No FAQs in Firebase yet. Press “⬇ Import current answers” to bring the existing questions across, then edit them here.
+      </td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = allFaqs.map((f) => `
+      <tr>
+        <td>${Number(f.order) || 0}</td>
+        <td><strong>${escapeText(f.q)}</strong></td>
+        <td style="max-width: 480px; font-size: 12px;">${escapeText(f.a) || '<em style="color: var(--color-text-muted);">No answer yet</em>'}</td>
+        <td>${f.active === false ? '<span class="badge badge-subtle">Hidden</span>' : '<span class="badge badge-success">Live</span>'}</td>
+        <td>
+          <div class="admin-action-btns">
+            <button class="btn btn-xs btn-outline js-edit-faq" data-id="${f.id}">Edit</button>
+            <button class="btn btn-xs btn-glass js-delete-faq" data-id="${f.id}" style="color: var(--color-error);">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    tbody.querySelectorAll('.js-edit-faq').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const faq = allFaqs.find((f) => f.id === btn.getAttribute('data-id'));
+        if (faq) openFaqModal(faq);
+      });
+    });
+
+    tbody.querySelectorAll('.js-delete-faq').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        const faq = allFaqs.find((f) => f.id === id);
+        if (!confirm('Delete this FAQ?\n\n"' + ((faq && faq.q) || '') + '"')) return;
+        const res = await window.VrindaAdmin.deleteFaq(id);
+        if (!res.success) alert('Delete failed: ' + res.error);
+      });
+    });
+  }
+
+  function escapeText(value) {
+    return String(value == null ? '' : value).replace(/[&<>"]/g, (ch) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]
+    ));
+  }
+
+  function openFaqModal(faq) {
+    const modal = document.getElementById('modalFaqForm');
+    const title = document.getElementById('faqFormTitle');
+    editingFaqId = faq ? faq.id : null;
+
+    if (faq) {
+      if (title) title.textContent = 'Edit FAQ';
+      document.getElementById('faqFormQ').value = faq.q || '';
+      document.getElementById('faqFormA').value = faq.a || '';
+      document.getElementById('faqFormOrder').value = faq.order || 0;
+      document.getElementById('faqFormActive').checked = faq.active !== false;
+    } else {
+      if (title) title.textContent = 'Add FAQ';
+      document.getElementById('faqFormQ').value = '';
+      document.getElementById('faqFormA').value = '';
+      document.getElementById('faqFormOrder').value = allFaqs.length + 1;
+      document.getElementById('faqFormActive').checked = true;
+    }
+
+    if (modal) modal.style.display = 'flex';
+  }
+
+  /* ------------------------------------------------ CUSTOM STUDIO REQUESTS */
+  const CUSTOM_STATUSES = ['pending-review', 'quote-sent', 'approved', 'crafting', 'delivered', 'declined'];
+
+  function renderCustomRequestsTable() {
+    const tbody = document.getElementById('customTbody');
+    if (!tbody) return;
+
+    const pending = allCustomRequests.filter((r) => r.status === 'pending-review').length;
+    const badge = document.getElementById('customBadge');
+    if (badge) {
+      badge.style.display = pending ? 'inline-flex' : 'none';
+      badge.textContent = String(pending);
+    }
+
+    if (customLoadError) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2rem; color: var(--color-error); white-space: pre-line;">${customLoadError}</td></tr>`;
+      return;
+    }
+
+    if (!allCustomRequests.length) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2rem;">No Custom Studio designs submitted yet.</td></tr>`;
+      return;
+    }
+
+    const nameOf = (uid) => {
+      const user = allUsers.find((u) => u.uid === uid);
+      return user ? (user.name || user.email || uid) : uid;
+    };
+
+    tbody.innerHTML = allCustomRequests.map((r) => {
+      const addons = Array.isArray(r.addons) && r.addons.length ? r.addons.join(', ') : 'None';
+      const design = `${r.baseLabel || '—'}<div style="font-size: 11px; color: var(--color-text-muted);">${r.palette || ''}${r.note ? ' · “' + r.note + '”' : ''}${addons !== 'None' ? ' · + ' + addons : ''}</div>`;
+      return `
+        <tr>
+          <td style="font-size: 11px;">${formatDate(r.createdAt)}</td>
+          <td><strong>${nameOf(r.uid)}</strong><div style="font-size: 11px; color: var(--color-text-muted);">${r.uid}</div></td>
+          <td><span class="badge badge-accent">${(r.typeLabel || r.type || '').toUpperCase()}</span></td>
+          <td><strong>${r.giftName || '—'}</strong></td>
+          <td>${r.occasion || '—'}<div style="font-size: 11px; color: var(--color-text-muted);">${r.recipient || '—'}</div></td>
+          <td style="max-width: 320px;">${design}</td>
+          <td><strong>₹${Number(r.quotedTotal || r.estimatedTotal || 0).toLocaleString('en-IN')}</strong></td>
+          <td>
+            <select class="form-select js-custom-status" data-uid="${r.uid}" data-id="${r.id}" style="max-width: 160px; padding: 0.3rem 0.5rem; font-size: 12px;">
+              ${CUSTOM_STATUSES.map((s) => `<option value="${s}" ${(r.status || 'pending-review') === s ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+          </td>
+          <td>
+            <div class="admin-action-btns">
+              <button class="btn btn-xs btn-outline js-custom-quote" data-uid="${r.uid}" data-id="${r.id}">Quote</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    tbody.querySelectorAll('.js-custom-status').forEach((sel) => {
+      sel.addEventListener('change', async () => {
+        const uid = sel.getAttribute('data-uid');
+        const id = sel.getAttribute('data-id');
+        const status = sel.value;
+        if (status === 'declined' && !confirm('Mark this design as declined?')) {
+          renderCustomRequestsTable();
+          return;
+        }
+        const res = await window.VrindaAdmin.updateCustomRequestStatus({ uid: uid, id: id, status: status });
+        if (res.success) {
+          alert('Design marked as ' + status + '.');
+        } else {
+          alert('Could not update the design: ' + res.error);
+          renderCustomRequestsTable();
+        }
+      });
+    });
+
+    tbody.querySelectorAll('.js-custom-quote').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const uid = btn.getAttribute('data-uid');
+        const id = btn.getAttribute('data-id');
+        const request = allCustomRequests.find((r) => r.uid === uid && r.id === id);
+        if (!request) return;
+        const quote = prompt('Confirmed quote to send on WhatsApp (₹):', String(request.quotedTotal || request.estimatedTotal || ''));
+        if (quote === null) return;
+        const note = prompt('Note for the customer / team (optional):', request.adminNote || '');
+        if (note === null) return;
+        window.VrindaAdmin.updateCustomRequestStatus({
+          uid: uid,
+          id: id,
+          quote: quote,
+          note: note,
+          status: 'quote-sent'
+        }).then((res) => {
+          if (res.success) alert('Quote saved and marked as quote-sent.');
+          else alert('Could not save the quote: ' + res.error);
+        });
       });
     });
   }
@@ -750,6 +953,22 @@
         isNew: isNew
       };
 
+      // The fields the storefront actually reads but the form used to drop,
+      // which left admin-created products with no MRP, label, badge or URL.
+      const mrp = Number(document.getElementById('prodFormMrp')?.value) || 0;
+      productPayload.originalPrice = mrp > 0 ? mrp : productPayload.price;
+      const categoryName = document.getElementById('prodFormCategoryName')?.value.trim();
+      if (categoryName) productPayload.categoryName = categoryName;
+      const badge = document.getElementById('prodFormBadge')?.value.trim();
+      if (badge) productPayload.badge = badge;
+      const slug = document.getElementById('prodFormSlug')?.value.trim()
+        .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      if (slug) productPayload.slug = slug;
+      const stock = Number(document.getElementById('prodFormStock')?.value);
+      if (!Number.isNaN(stock) && stock > 0) productPayload.stock = stock;
+      const activeEl = document.getElementById('prodFormActive');
+      productPayload.active = activeEl ? activeEl.checked : true;
+
       if (!productPayload.name) {
         alert('Please enter a product name.');
         return;
@@ -765,6 +984,53 @@
         alert('Save error: ' + res.error +
           (String(res.error).includes('Permission') ? '\n\nPublish the database rules first:\nfirebase deploy --only database' : ''));
       }
+    });
+
+    // FAQ: create / edit / import
+    document.getElementById('btnOpenNewFaqModal')?.addEventListener('click', () => {
+      openFaqModal(null);
+    });
+
+    document.getElementById('btnSaveFaq')?.addEventListener('click', async () => {
+      const payload = {
+        id: editingFaqId,
+        q: document.getElementById('faqFormQ').value.trim(),
+        a: document.getElementById('faqFormA').value.trim(),
+        order: Number(document.getElementById('faqFormOrder').value) || 0,
+        active: document.getElementById('faqFormActive').checked
+      };
+
+      if (!payload.q) {
+        alert('Please enter the question.');
+        return;
+      }
+
+      const res = await window.VrindaAdmin.saveFaq(payload);
+      if (!res.success) {
+        alert('Could not save the FAQ: ' + res.error);
+        return;
+      }
+      document.getElementById('modalFaqForm').style.display = 'none';
+      editingFaqId = null;
+      alert('FAQ saved — it is live on the homepage now.');
+    });
+
+    document.getElementById('btnImportFaqs')?.addEventListener('click', async () => {
+      if (!confirm('Import the current bundled answers into Firebase?\n\nOnly runs when /faqs is empty — anything you have already edited is never overwritten.')) return;
+      const res = await window.VrindaAdmin.importSampleFaqs();
+      if (!res.success) {
+        alert('Import failed: ' + res.error);
+        return;
+      }
+      alert(res.skipped
+        ? 'You already have FAQs in Firebase — nothing was imported.'
+        : 'Imported ' + res.imported + ' FAQ(s). Edit them below.');
+    });
+
+    // Custom Studio refresh button (the table is live; this re-reads on demand)
+    document.getElementById('btnRefreshCustom')?.addEventListener('click', () => {
+      customLoadError = null;
+      renderCustomRequestsTable();
     });
 
     // Add Coupon modal trigger (reset to create mode)
@@ -966,6 +1232,18 @@
       document.getElementById('prodFormDesc').value = prod.description || '';
       document.getElementById('prodFormCustomizable').checked = !!(prod.customizable || prod.isPersonalized);
       document.getElementById('prodFormBestseller').checked = !!(prod.bestseller || prod.isBestSeller);
+      const mrpEl = document.getElementById('prodFormMrp');
+      if (mrpEl) mrpEl.value = prod.originalPrice && prod.originalPrice !== prod.price ? prod.originalPrice : '';
+      const catNameEl = document.getElementById('prodFormCategoryName');
+      if (catNameEl) catNameEl.value = prod.categoryName || '';
+      const badgeEl = document.getElementById('prodFormBadge');
+      if (badgeEl) badgeEl.value = prod.badge || '';
+      const slugEl = document.getElementById('prodFormSlug');
+      if (slugEl) slugEl.value = prod.slug || '';
+      const stockEl = document.getElementById('prodFormStock');
+      if (stockEl) stockEl.value = prod.stock || '';
+      const activeEl = document.getElementById('prodFormActive');
+      if (activeEl) activeEl.checked = prod.active !== false;
       const trendingEl = document.getElementById('prodFormTrending');
       if (trendingEl) trendingEl.checked = !!prod.isTrending;
       const newEl = document.getElementById('prodFormNew');
@@ -980,6 +1258,12 @@
       document.getElementById('prodFormDesc').value = '';
       document.getElementById('prodFormCustomizable').checked = false;
       document.getElementById('prodFormBestseller').checked = false;
+      ['prodFormMrp', 'prodFormCategoryName', 'prodFormBadge', 'prodFormSlug', 'prodFormStock'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      const newActive = document.getElementById('prodFormActive');
+      if (newActive) newActive.checked = true;
       const trendingEl = document.getElementById('prodFormTrending');
       if (trendingEl) trendingEl.checked = false;
       const newEl = document.getElementById('prodFormNew');

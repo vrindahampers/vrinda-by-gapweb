@@ -71,6 +71,11 @@
 
   const cfg = window.VRINDA_FAMGATEWAY_CONFIG;
 
+  // Captured while this very script is executing: ".../js/famgateway.js" tells us
+  // the site root no matter which page loaded us (checkout lives in /pages/, the
+  // custom studio in /custom/, the homepage at the root).
+  const SCRIPT_URL = (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) || '';
+
   function isPlaceholder(value) {
     if (!value) return true;
     return /YOUR_|xxxx|<region>|<project>|TODO/i.test(String(value));
@@ -142,10 +147,29 @@
     return cfg.baseUrl + cfg.receiptPath + '?id=' + encodeURIComponent(famgatewayOrderId);
   };
 
+  /**
+   * The SITE ROOT with a trailing slash — NOT the current page's directory.
+   * cfg.returnPagePath ("pages/payment-return.html") is root-relative and the
+   * checkout page itself lives in /pages/, so using the page directory produced
+   * https://host/pages/pages/payment-return.html and every paid customer landed
+   * on "Cannot GET /pages/pages/payment-return.html".
+   */
   Gateway.appBaseUrl = function () {
-    const path = window.location.pathname;
-    const dir = path.substring(0, path.lastIndexOf('/') + 1);
-    return window.location.origin + dir;
+    if (Gateway._rootBase) return Gateway._rootBase;
+
+    // Preferred: derive the root from this script's own URL.
+    const fromScript = SCRIPT_URL.replace(/\/js\/famgateway\.js(?:[?#].*)?$/, '/');
+    if (fromScript !== SCRIPT_URL && /^https?:/i.test(fromScript)) {
+      Gateway._rootBase = fromScript;
+      return fromScript;
+    }
+
+    // Fallback (bundled/inlined build): walk up out of known section folders.
+    const path = window.location.pathname || '/';
+    const dir = path.substring(0, path.lastIndexOf('/') + 1) || '/';
+    const match = dir.match(/^((?:\/[^/]+)*)\/(?:pages|product|category|custom|admin)\/$/);
+    Gateway._rootBase = window.location.origin + (match ? match[1] + '/' : dir);
+    return Gateway._rootBase;
   };
 
   Gateway.redirectUrl = function () {

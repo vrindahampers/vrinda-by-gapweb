@@ -7,6 +7,13 @@
 (function () {
   'use strict';
 
+  // A product the Super Admin unticked ("Live on the storefront") is hidden from
+  // customers but must stay visible in the admin catalog, so only the storefront
+  // read applies this filter.
+  function isLive(product) {
+    return !!product && product.active !== false;
+  }
+
   const CatalogService = {
     // Cache
     productsCache: null,
@@ -110,17 +117,17 @@
       return all.find(c => c.slug === slug || c.id === slug) || null;
     },
 
-    // Fetch all products
+    // Fetch all products (storefront — never returns products hidden by the admin)
     getProducts: async function () {
-      if (this.productsCache) return this.productsCache;
+      if (this.productsCache) return this.productsCache.filter(isLive);
 
       if (typeof firebase !== 'undefined' && firebase.database) {
         try {
           const snapshot = await firebase.database().ref('products').once('value');
           if (snapshot.exists()) {
             const data = snapshot.val();
-            this.productsCache = Array.isArray(data) ? data : Object.values(data);
-            return this.productsCache;
+            this.productsCache = Array.isArray(data) ? data.filter(Boolean) : Object.values(data);
+            return this.productsCache.filter(isLive);
           }
         } catch (e) {
           console.warn('Firebase RTDB products read warning; using local data:', e.message);
@@ -141,6 +148,7 @@
             const data = snapshot.val();
             const list = Array.isArray(data) ? data.filter(Boolean) : Object.values(data);
             this.productsCache = list;
+            // Admin view: deliberately unfiltered, so hidden products stay editable.
             return list;
           }
         } catch (e) {

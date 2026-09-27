@@ -45,6 +45,12 @@
         <button class="admin-nav-item" data-tab="catalog">
           <span>🎁</span> Catalog &amp; Products
         </button>
+        <button class="admin-nav-item" data-tab="faq">
+          <span>❓</span> FAQ &amp; Content
+        </button>
+        <button class="admin-nav-item" data-tab="custom">
+          <span>🎨</span> Custom Studio <span id="customBadge" class="badge badge-error" style="display: none; margin-left: auto;">0</span>
+        </button>
         <button class="admin-nav-item" data-tab="reviews">
           <span>⭐</span> Customer Reviews
         </button>
@@ -270,7 +276,76 @@
           </div>
         </div>
       </section>
-      <!-- Section 6: Discount Coupons -->
+      <!-- Section 6: FAQ & Content -->
+      <section id="tab-faq" class="admin-tab-section" style="display: none;">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>FAQ &amp; Content</h1>
+            <p>Edit the questions and answers customers see on the homepage. Changes go live the moment you save.</p>
+          </div>
+          <div class="admin-action-btns">
+            <button class="btn btn-sm btn-glass" id="btnImportFaqs">⬇ Import current answers</button>
+            <button class="btn btn-sm btn-primary" id="btnOpenNewFaqModal">➕ Add Question</button>
+          </div>
+        </div>
+
+        <div class="admin-table-container">
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Question</th>
+                  <th>Answer</th>
+                  <th>Live</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="faqTbody">
+                <tr><td colspan="5" style="text-align: center; padding: 2rem;">Loading FAQs...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 7: Custom Studio Requests -->
+      <section id="tab-custom" class="admin-tab-section" style="display: none;">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>Custom Studio Requests</h1>
+            <p>Every bespoke design submitted by customers, newest first. Confirm the quote on WhatsApp and move it through the pipeline.</p>
+          </div>
+          <div class="admin-action-btns">
+            <button class="btn btn-sm btn-glass" id="btnRefreshCustom">🔄 Refresh</button>
+          </div>
+        </div>
+
+        <div class="admin-table-container">
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Submitted</th>
+                  <th>Customer</th>
+                  <th>Gift Type</th>
+                  <th>Gift Name</th>
+                  <th>Occasion / For</th>
+                  <th>Design</th>
+                  <th>Est. Total</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="customTbody">
+                <tr><td colspan="9" style="text-align: center; padding: 2rem;">Loading custom designs...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 7: Discount Coupons -->
       <section id="tab-coupons" class="admin-tab-section" style="display: none;">
         <div class="admin-header">
           <div class="admin-header-title">
@@ -508,11 +583,37 @@
           <label class="form-label">Price (₹)</label>
           <input type="number" id="prodFormPrice" class="form-input" required placeholder="1499">
         </div>
+        <div class="form-group">
+          <label class="form-label">Original Price / MRP (₹)</label>
+          <input type="number" id="prodFormMrp" class="form-input" placeholder="1899 — shown struck through">
+        </div>
+      </div>
+
+      <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div class="form-group">
+          <label class="form-label">Category Label (shown on cards)</label>
+          <input type="text" id="prodFormCategoryName" class="form-input" placeholder="Luxury Hampers">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Badge</label>
+          <input type="text" id="prodFormBadge" class="form-input" placeholder="Best Seller / Trending / Signature">
+        </div>
       </div>
 
       <div class="form-group">
         <label class="form-label">Image URL</label>
         <input type="text" id="prodFormImage" class="form-input" placeholder="../assets/images/placeholder.jpg">
+      </div>
+
+      <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div class="form-group">
+          <label class="form-label">URL Slug (optional)</label>
+          <input type="text" id="prodFormSlug" class="form-input" placeholder="auto-generated from the title">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Stock</label>
+          <input type="number" id="prodFormStock" class="form-input" min="0" placeholder="0 = made to order">
+        </div>
       </div>
 
       <div class="form-group">
@@ -533,9 +634,13 @@
         <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
           <input type="checkbox" id="prodFormNew"> New Arrival
         </label>
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+          <input type="checkbox" id="prodFormActive" checked> Live on the storefront
+        </label>
       </div>
       <p style="font-size: 11px; color: var(--color-text-muted); margin: 6px 0 0;">
         These flags decide which homepage sections (Best Sellers, Trending, New Arrivals, Personalized Gifts) and category sorts the product appears in.
+        Unticking “Live on the storefront” keeps the product in your catalog but hides it from customers.
       </p>
 
       <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 1rem;">
@@ -592,6 +697,43 @@
       <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 1rem;">
         <button class="btn btn-sm btn-glass" onclick="document.getElementById('modalCouponForm').style.display='none'">Cancel</button>
         <button class="btn btn-sm btn-primary" id="btnSaveCoupon">Save Coupon</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. FAQ Edit Modal -->
+  <div id="modalFaqForm" class="admin-modal-overlay" style="display: none;">
+    <div class="admin-modal-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 0.75rem;">
+        <h2 id="faqFormTitle" style="font-size: 1.25rem; margin: 0;">Add FAQ</h2>
+        <button class="btn btn-xs btn-glass" onclick="document.getElementById('modalFaqForm').style.display='none'">✕</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Question</label>
+        <input type="text" id="faqFormQ" class="form-input" placeholder="How long does delivery take?">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Answer</label>
+        <textarea id="faqFormA" class="form-input" rows="5" placeholder="Answer exactly what you want customers to read..."></textarea>
+      </div>
+
+      <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div class="form-group">
+          <label class="form-label">Order</label>
+          <input type="number" id="faqFormOrder" class="form-input" placeholder="1">
+        </div>
+        <div class="form-group" style="display: flex; align-items: flex-end; padding-bottom: 8px;">
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+            <input type="checkbox" id="faqFormActive" checked> Show on the homepage
+          </label>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 1rem;">
+        <button class="btn btn-sm btn-glass" onclick="document.getElementById('modalFaqForm').style.display='none'">Cancel</button>
+        <button class="btn btn-sm btn-primary" id="btnSaveFaq">Save FAQ</button>
       </div>
     </div>
   </div>

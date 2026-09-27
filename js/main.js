@@ -68,6 +68,9 @@
 
     // Re-paint the product sections from the admin-managed Firebase catalog.
     hydrateCatalogFromFirebase();
+
+    // Repaint the FAQ as soon as the admin-managed answers arrive from Firebase.
+    document.addEventListener('vrinda:faqs-changed', renderFAQ);
   });
 
   // Helper to build the product detail URL for a homepage card
@@ -291,7 +294,12 @@
     const container = document.getElementById('faqContainer');
     if (!container) return;
 
-    container.innerHTML = window.VRINDA_DATA.faqs.map((faq, index) => `
+    // Admin-managed FAQs from Firebase, falling back to the bundled answers.
+    const faqs = (window.VrindaStore && typeof window.VrindaStore.faqList === 'function')
+      ? window.VrindaStore.faqList()
+      : ((window.VRINDA_DATA && window.VRINDA_DATA.faqs) || []);
+
+    container.innerHTML = faqs.map((faq, index) => `
       <div class="faq-item ${index === 0 ? 'active' : ''}">
         <button class="faq-question" aria-expanded="${index === 0 ? 'true' : 'false'}">
           <span>${faq.q}</span>

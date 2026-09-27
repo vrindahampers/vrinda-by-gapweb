@@ -208,6 +208,136 @@
       }
     },
 
+    /* ------------------------------------------------- CUSTOM STUDIO REQUESTS */
+
+    /**
+     * Every Custom Studio design ever submitted, flattened out of
+     * /customRequests/{uid}/{requestId}. Needs the parent-level read on
+     * customRequests (see database.rules.json).
+     */
+    listenToCustomRequests: function (callback, onError) {
+      const db = this._db();
+      if (!db || typeof callback !== 'function') return () => {};
+      const ref = db.ref('customRequests');
+      const handler = (snap) => {
+        const val = snap.val() || {};
+        const list = [];
+        Object.keys(val).forEach((uid) => {
+          const mine = val[uid] || {};
+          Object.keys(mine).forEach((requestId) => {
+            list.push(Object.assign({ id: requestId, uid: uid }, mine[requestId]));
+          });
+        });
+        list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        callback(list);
+      };
+      const errHandler = (err) => {
+        console.warn('listenToCustomRequests error:', err && err.message);
+        if (typeof onError === 'function') onError(err);
+      };
+      ref.on('value', handler, errHandler);
+      return () => ref.off('value', handler);
+    },
+
+    // Move a submitted design through the review pipeline.
+    updateCustomRequestStatus: async function (request) {
+      const db = this._db();
+      if (!db || !request || !request.uid || !request.id) return { success: false, error: 'Missing parameters' };
+      try {
+        const updates = {};
+        updates['customRequests/' + request.uid + '/' + request.id + '/status'] = request.status;
+        if (request.note !== undefined) {
+          updates['customRequests/' + request.uid + '/' + request.id + '/adminNote'] = request.note;
+        }
+        if (request.quote !== undefined && request.quote !== '') {
+          updates['customRequests/' + request.uid + '/' + request.id + '/quotedTotal'] = Number(request.quote) || 0;
+        }
+        updates['customRequests/' + request.uid + '/' + request.id + '/reviewedAt'] = this._stamp();
+        await db.ref().update(updates);
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+
+    /* ----------------------------------------------------------------- FAQs */
+
+    listenToFaqs: function (callback, onError) {
+      const db = this._db();
+      if (!db || typeof callback !== 'function') return () => {};
+      const ref = db.ref('faqs');
+      const handler = (snap) => {
+        const val = snap.val() || {};
+        const list = Object.keys(val).map((id) => Object.assign({ id: id }, val[id]));
+        list.sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+        callback(list);
+      };
+      const errHandler = (err) => {
+        console.warn('listenToFaqs error:', err && err.message);
+        if (typeof onError === 'function') onError(err);
+      };
+      ref.on('value', handler, errHandler);
+      return () => ref.off('value', handler);
+    },
+
+    saveFaq: async function (faq) {
+      const db = this._db();
+      if (!db) return { success: false, error: 'Database unavailable' };
+      if (!faq || !String(faq.q || '').trim()) return { success: false, error: 'A question is required' };
+
+      const id = faq.id || ('faq-' + Date.now().toString(36));
+      const record = {
+        q: String(faq.q).trim(),
+        a: String(faq.a || '').trim(),
+        order: Number(faq.order) || 0,
+        active: faq.active !== false,
+        updatedAt: this._stamp()
+      };
+      try {
+        await db.ref('faqs/' + id).set(record);
+        return { success: true, id: id, faq: record };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+
+    deleteFaq: async function (id) {
+      const db = this._db();
+      if (!db || !id) return { success: false, error: 'Database unavailable' };
+      try {
+        await db.ref('faqs/' + id).remove();
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+
+    // Seed /faqs from the bundled answers when the node is still empty, so the
+    // admin can start editing instead of an empty table.
+    importSampleFaqs: async function () {
+      const db = this._db();
+      if (!db) return { success: false, error: 'Database unavailable' };
+      const source = (window.VRINDA_DATA && window.VRINDA_DATA.faqs) || [];
+      if (!source.length) return { success: false, error: 'No bundled FAQ answers to import' };
+      try {
+        const snap = await db.ref('faqs').once('value');
+        if (snap.exists()) return { success: true, imported: 0, skipped: true };
+        const updates = {};
+        source.forEach((faq, index) => {
+          updates['faqs/faq-' + (index + 1)] = {
+            q: faq.q,
+            a: faq.a,
+            order: index + 1,
+            active: true
+          };
+        });
+        await db.ref().update(updates);
+        return { success: true, imported: source.length };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+
     /* --------------------------------------------------------- ANALYTICS & STATS */
 
     computeStats: function (orders, users, reviews) {

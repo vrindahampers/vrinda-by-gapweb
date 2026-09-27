@@ -156,6 +156,17 @@ Two more one-time notes for a brand-new project:
 | Team & Roles (promote/reassign) | `users/$uid/role` + `admins` / `staff` / `deliveryManagers` | portal access everywhere |
 | Store Settings (contact, thresholds) | `settings` | free-delivery threshold, shipping fee, cart totals, announcement bar, WhatsApp links |
 | SEO meta tags | `seo` | homepage `<title>` + `<meta name="description">` |
+| FAQ & Content | `faqs/$id` | homepage FAQ section (live, no reload needed) |
+| Custom Studio requests | `customRequests/$uid/$requestId` (written by the customer) | status + quote back into the portal |
+
+Product visibility: unticking **“Live on the storefront”** keeps a product in the admin
+catalog (where you can still edit it) but hides it from every customer-facing read.
+`VrindaCatalog.getAllProducts()` (admin) is unfiltered; `getProducts()` (storefront) skips
+anything with `active: false`.
+
+The Custom Studio "Gift" type collects a **gift name** from the customer; that name is
+stored on the request, shown in the admin Custom Studio tab, and included in the WhatsApp
+handoff message so fulfilment and the customer see the same name.
 
 Saving Store Settings reports the real outcome — a denied write now says so (and points at
 `firebase deploy --only database`) instead of claiming success.

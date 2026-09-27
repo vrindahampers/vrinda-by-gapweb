@@ -171,8 +171,17 @@
       ".read": true,
       ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin')"
     },
+    "faqs": {
+      // Homepage FAQ answers, edited from Admin -> FAQ & Content.
+      // Public read (the homepage is public), admin-only write.
+      ".read": true,
+      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin')"
+    },
     "customRequests": {
       // Customers submit bespoke configurator designs; Staff/Admins review them
+      // Parent-level read so the admin portal can list EVERY customer's designs -
+      // a $uid child rule can never grant a read of the whole node.
+      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff')",
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff'))",
         ".write": "auth != null && auth.uid === $uid && auth.token.email_verified == true"
