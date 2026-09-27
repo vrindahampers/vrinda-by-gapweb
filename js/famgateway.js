@@ -172,8 +172,14 @@
     return Gateway._rootBase;
   };
 
-  Gateway.redirectUrl = function () {
-    return this.appBaseUrl() + cfg.returnPagePath;
+  Gateway.redirectUrl = function (extraParams) {
+    const base = this.appBaseUrl() + cfg.returnPagePath;
+    if (!extraParams) return base;
+    const query = Object.keys(extraParams)
+      .filter((k) => extraParams[k])
+      .map((k) => encodeURIComponent(k) + '=' + encodeURIComponent(extraParams[k]))
+      .join('&');
+    return query ? base + '?' + query : base;
   };
 
   Gateway.idToken = async function () {
@@ -199,7 +205,7 @@
       customer_name: customer.name || '',
       customer_email: customer.email || '',
       customer_phone: String(customer.phone || '').replace(/\D/g, '').slice(-10),
-      redirect_url: this.redirectUrl(),
+      redirect_url: this.redirectUrl({ draft_id: args.orderDraftId || '' }),
       order_draft_id: args.orderDraftId || ''
     };
     if (!isPlaceholder(cfg.webhookUrl)) payload.webhook_url = cfg.webhookUrl;
@@ -467,12 +473,69 @@
    * way back from checkout. Only /api/verify-order.php is authoritative, so the
    * query string here is treated purely as a hint.
    */
+  /**
+   * Where the in-flight payment session is stashed on the customer's own device.
+   * FamGateway's hosted pay.php redirects back to the bare redirect_url we gave it
+   * (no order_id in the query), so without this the return page had no reference,
+   * bailed out, and a captured payment never became an order.
+   */
+  const PENDING_KEY = 'vrinda:pending-payment';
+
+  Gateway.stashPendingSession = function (session, draftId, userId) {
+    if (!session || !session.orderId) return false;
+    try {
+      localStorage.setItem(PENDING_KEY, JSON.stringify({
+        orderId: session.orderId,
+        draftId: draftId || '',
+        userId: userId || '',
+        amount: session.amount || 0,
+        payableAmount: session.payableAmount || session.amount || 0,
+        createdAt: Date.now()
+      }));
+      return true;
+    } catch (err) {
+      console.warn('Pending payment stash skipped:', err.message);
+      return false;
+    }
+  };
+
+  Gateway.clearPendingSession = function (orderId) {
+    try {
+      const raw = JSON.parse(localStorage.getItem(PENDING_KEY) || 'null');
+      if (!raw || !orderId || raw.orderId === orderId) localStorage.removeItem(PENDING_KEY);
+    } catch (err) { /* ignore */ }
+  };
+
+  /**
+   * Resolves which FamGateway order this return belongs to, most trustworthy
+   * source first:
+   *   1. the return link itself
+   *   2. the session stashed on this device moments before the redirect
+   * Returns {orderId, source} or null. Sessions older than 45 minutes are ignored
+   * so a stale tab can never be mistaken for the current payment.
+   */
+  Gateway.resolveReturnOrder = function (returned) {
+    const fromLink = returned && returned.famgatewayOrderId;
+    if (fromLink) return { orderId: fromLink, source: 'return-link' };
+
+    let stashed = null;
+    try { stashed = JSON.parse(localStorage.getItem(PENDING_KEY) || 'null'); } catch (err) { stashed = null; }
+    if (!stashed || !stashed.orderId) return null;
+
+    const age = Date.now() - (stashed.createdAt || 0);
+    if (age > 45 * 60 * 1000) return null;
+
+    return { orderId: stashed.orderId, source: 'device-session', amount: stashed.amount };
+  };
+
   Gateway.handleReturn = function (search) {
     const params = new URLSearchParams(search || window.location.search);
     const status = String(params.get('status') || params.get('payment_status') || '').toLowerCase();
 
     return {
-      famgatewayOrderId: params.get('order_id') || params.get('fg_order_id') || '',
+      // FamGateway's hosted page may echo the order back under different names.
+      famgatewayOrderId: params.get('order_id') || params.get('fg_order_id') || params.get('order') || params.get('id') || '',
+      draftId: params.get('draft_id') || params.get('order_draft_id') || '',
       status: status || 'unknown',
       amount: Number(params.get('amount') || 0),
       utr: params.get('utr') || '',

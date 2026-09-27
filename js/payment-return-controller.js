@@ -47,10 +47,24 @@
     async function run() {
       UI.markSteps('returnSteps', 'session', 'done');
 
-      if (!returned.famgatewayOrderId) {
+      // FamGateway's hosted page sends the customer back to a bare redirect_url,
+      // so the order reference usually has to come from this device. Never leave a
+      // captured payment unclaimed.
+      const resolved = Gateway.resolveReturnOrder
+        ? Gateway.resolveReturnOrder(returned)
+        : (returned.famgatewayOrderId ? { orderId: returned.famgatewayOrderId, source: 'return-link' } : null);
+
+      if (!resolved || !resolved.orderId) {
         fail('No FamGateway order reference was found in the return link.',
           'If money left your account, share the UPI reference with us on WhatsApp and we will reconcile it manually.');
         return;
+      }
+
+      if (resolved.orderId !== returned.famgatewayOrderId) {
+        returned.famgatewayOrderId = resolved.orderId;
+        UI.notice('returnNotice',
+          '<strong>We recovered your payment session from this device.</strong> Verifying it with FamGateway now…',
+          'info');
       }
 
       showDebug();
@@ -219,6 +233,7 @@
     /* ------------------------------------------------------------- endings */
 
     function succeed(orderId) {
+      if (Gateway.clearPendingSession) Gateway.clearPendingSession(returned.famgatewayOrderId);
       const icon = document.getElementById('returnIcon');
       if (icon) {
         icon.className = 'return-icon success';

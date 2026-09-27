@@ -344,7 +344,7 @@
 
       // Snapshot the whole intent first, so a refresh, a bank redirect or a failed
       // payment can never lose the customer's delivery and gifting details.
-      Orders.saveCheckoutDraft({
+      const draftPayload = {
         draftId: draftId,
         checkout: checkout,
         shippingMode: shippingMode,
@@ -358,7 +358,8 @@
           total: totals.total
         },
         createdAt: Date.now()
-      });
+      };
+      Orders.saveCheckoutDraft(draftPayload);
 
       if (checkout.saveAddress) persistAddress(checkout);
 
@@ -382,6 +383,13 @@
       }
 
       await Gateway.recordSession(session, currentUser.uid, draftId);
+      // Keep the session on this device: FamGateway comes back to a bare URL, and
+      // without this the return page cannot tell which payment to verify.
+      Gateway.stashPendingSession(session, draftId, currentUser.uid);
+      // Mirror the gateway order id into the draft (merged, never replacing the
+      // checkout details we just snapshotted) so the order can still be built from
+      // another tab or device.
+      Orders.saveCheckoutDraft(Object.assign({}, draftPayload, { gatewayOrderId: session.orderId }));
 
       UI.notice('checkoutNotice',
         session.simulated
