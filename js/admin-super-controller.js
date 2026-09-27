@@ -271,6 +271,10 @@
                 <span class="badge badge-error" title="${escapeText(o.payment.verificationNote || '')}">⚠️ Payment unverified</span>
                 ${o.payment.utr ? `<div style="color: var(--color-text-muted);">UTR: ${o.payment.utr}</div>` : ''}
               </div>` : ''}
+            ${(o.payment && o.payment.simulated) ? `
+              <div style="font-size: 11px; margin-top: 4px;">
+                <span class="badge badge-subtle" title="Created in local payment simulation — no money was taken. Safe to delete.">🧪 Rehearsal</span>
+              </div>` : ''}
           </td>
           <td>
             <strong>${recipientName(o)}</strong>

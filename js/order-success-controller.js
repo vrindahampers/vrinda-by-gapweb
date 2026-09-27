@@ -97,10 +97,28 @@
       renderTracking(order);
 
       if (payment.simulated) {
+        // A rehearsal order must never read like a paid one: rewrite the hero so
+        // nobody mistakes "no money moved" for "your gift is on its way".
+        const icon = document.getElementById('successIcon');
+        if (icon) icon.textContent = '🧪';
+        setText('successHeadline', 'Rehearsal order — no payment was taken');
+        const blurb = document.getElementById('successBlurb');
+        if (blurb) {
+          blurb.innerHTML =
+            'Order <strong>' + UI.escapeHtml(order.orderId) + '</strong> was created while your browser was in ' +
+            '<strong>local payment simulation</strong>. <strong>No money was charged and nothing will be shipped.</strong><br>' +
+            'It is useful for checking the flow end to end — delete it from the admin portal when you are done.';
+        }
+        const liveFlag = document.getElementById('successLiveFlag');
+        if (liveFlag) liveFlag.style.display = 'none';
+
         UI.notice('successNotice',
           '<strong>🧪 This order was created in payment simulation mode.</strong><br>' +
-          'No real money moved through FamGateway. Add your merchant API key and Cloud Function URLs ' +
-          'in <code>js/famgateway.js</code> to switch this flow to live UPI payments.',
+          'No real money moved through FamGateway — this is a rehearsal, not a purchase.<br><br>' +
+          'To place a <strong>real</strong> order, either test on the live site ' +
+          '(<code>https://vrindahampers.qzz.io</code>, where the key is already configured), or on localhost run this ' +
+          'once in the browser console and reload:<br>' +
+          '<code>localStorage.setItem(\'vrinda:famgateway-key\', \'fam_…\'); location.reload();</code>',
           'warning');
       }
     }
