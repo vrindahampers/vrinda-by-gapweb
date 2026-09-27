@@ -42,6 +42,15 @@
         <button class="admin-nav-item" data-tab="cancellations">
           <span>⚠️</span> Cancellations <span id="cancelBadge" class="badge badge-error" style="display: none; margin-left: auto;">0</span>
         </button>
+        <button class="admin-nav-item" data-tab="maker" data-requires="superadmin">
+          <span>📦</span> Bulk Product Maker
+        </button>
+        <button class="admin-nav-item" data-tab="customers" data-requires="manager">
+          <span>👥</span> Customers
+        </button>
+        <button class="admin-nav-item" data-tab="content" data-requires="owner">
+          <span>🎛️</span> Site Content
+        </button>
         <button class="admin-nav-item" data-tab="catalog">
           <span>🎁</span> Catalog &amp; Products
         </button>
@@ -222,6 +231,112 @@
         </div>
       </section>
       <!-- Section 4: Catalog & Products -->
+      <section id="tab-customers" class="admin-tab-section" style="display: none;" data-requires="manager">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>Customers</h1>
+            <p>Every registered customer. Super Admin+ and above can correct a name or phone number — roles are managed on the Staff &amp; Roles tab.</p>
+          </div>
+        </div>
+
+        <div class="admin-table-container">
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Joined</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="customersTbody">
+                <tr><td colspan="5" style="text-align: center; padding: 2rem;">Loading customers...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-content" class="admin-tab-section" style="display: none;" data-requires="owner">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>Site Content Editor</h1>
+            <p>Every headline, paragraph, image and button on the storefront. Changes go live on the next page load. Leave a field empty to fall back to the built-in text.</p>
+          </div>
+          <div class="admin-action-btns">
+            <button class="btn btn-sm btn-glass" id="siteContentReset">Clear all</button>
+            <button class="btn btn-sm btn-primary" id="siteContentSave">💾 Save changes</button>
+          </div>
+        </div>
+
+        <div id="siteContentSummary" style="margin-bottom: 1rem;"></div>
+
+        <form id="siteContentForm" onsubmit="return false;">
+          <p style="color: var(--color-text-muted); font-size: 13px;">Loading fields…</p>
+        </form>
+      </section>
+
+      <section id="tab-maker" class="admin-tab-section" style="display: none;">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>Bulk Product Maker</h1>
+            <p>Paste a spreadsheet (or upload a .csv), check the preview, then download a file or import straight into Firebase.</p>
+          </div>
+        </div>
+
+        <div class="glass-panel" style="padding: 1.25rem; margin-bottom: 1.25rem;">
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+            <button class="btn btn-sm btn-outline" id="btnMakerTemplate">⬇ Download blank template</button>
+            <label class="btn btn-sm btn-outline" for="makerFile" style="cursor: pointer; margin: 0;">📄 Upload a .csv file</label>
+            <input type="file" id="makerFile" accept=".csv,text/csv,text/plain" style="display: none;">
+            <button class="btn btn-sm btn-outline" id="btnMakerSample">Fill with an example</button>
+            <button class="btn btn-sm btn-glass" id="btnMakerClear">Clear</button>
+          </div>
+          <p style="font-size: 12px; color: var(--color-text-muted); margin: 0.75rem 0 0;">
+            Columns: <code>name</code>, <code>category</code> and <code>price</code> are required.
+            <code>active</code> accepts Y/N. Prices may be typed as <code>₹1,899</code>.
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="makerCsv">Paste your rows here (first line = column headings)</label>
+          <textarea id="makerCsv" class="form-input" rows="10" style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;"
+            placeholder="name,category,price&#10;Velvet Rose Bouquet,bouquets,1899"></textarea>
+        </div>
+
+        <div id="makerSummary" style="margin: 1rem 0; font-size: 14px;"></div>
+
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem;">
+          <button class="btn btn-sm btn-outline" id="btnMakerPreview">👁 Preview</button>
+          <button class="btn btn-sm btn-outline" id="btnMakerDownloadCsv">⬇ Download .csv</button>
+          <button class="btn btn-sm btn-outline" id="btnMakerDownloadJson">⬇ Download .json</button>
+          <button class="btn btn-sm btn-primary" id="btnMakerImport">⬆ Import to website (merge)</button>
+          <button class="btn btn-sm btn-glass" id="btnMakerImportReplace">Replace everything</button>
+        </div>
+
+        <div id="makerErrors" style="display: none; margin-bottom: 1rem;"></div>
+
+        <div id="makerPreviewWrap" class="admin-table-container" style="display: none;">
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead><tr id="makerPreviewHead"></tr></thead>
+              <tbody id="makerPreviewBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="glass-panel" style="padding: 1.25rem; margin-top: 1.5rem; border-color: var(--color-error);">
+          <h3 style="font-size: 15px; margin: 0 0 0.5rem; color: var(--color-error);">Danger zone</h3>
+          <p style="font-size: 13px; color: var(--color-text-muted); margin: 0 0 0.75rem;">
+            Delete every product from the live website. This cannot be undone from here — export a file first if you are unsure.
+          </p>
+          <button class="btn btn-sm btn-outline" id="btnMakerWipe"
+            style="border-color: var(--color-error); color: var(--color-error);">🗑 Remove all products</button>
+        </div>
+      </section>
+
       <section id="tab-catalog" class="admin-tab-section" style="display: none;">
         <div class="admin-header">
           <div class="admin-header-title">
@@ -843,6 +958,9 @@
   <script src="../js/order-service.js"></script>
   <script src="../js/admin-service.js"></script>
   <script src="../js/layout.js"></script>
+  <script src="../js/site-content-service.js"></script>
+  <script src="../js/product-maker-service.js"></script>
   <script src="../js/admin-super-controller.js"></script>
+  <script src="../js/admin-elevated-panels.js"></script>
 </body>
 </html>

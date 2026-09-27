@@ -458,6 +458,10 @@
     });
   }
   /* ---------------------------------------------------- PRODUCTS CATALOG */
+  // Exposed so the Bulk Product Maker panel can refresh this table after an
+  // import, without either file reaching into the other's internals.
+  window.loadProducts = loadProducts;
+
   async function loadProducts() {
     const tbody = document.getElementById('productsTbody');
     if (!tbody || !window.VrindaCatalog) {

@@ -174,6 +174,49 @@
       return csv;
     },
 
+    /**
+     * Edit a customer's record. Reserved for Super Admin+ and Super Admin++ by
+     * users/$uid/.write, so a plain Super Admin write is refused by the database.
+     *
+     * `role` is deliberately NOT part of the patch: changing someone's role goes
+     * through updateUserRole, which enforces the grant rules. Letting it ride
+     * along here would create a second, unguarded path to promotion.
+     */
+    updateCustomer: async function (uid, patch) {
+      const db = this._db();
+      if (!db || !uid || !patch) return { success: false, error: 'Missing parameters' };
+
+      const auth = window.VrindaAuth;
+      if (!auth || !auth.currentUser || !auth.atLeast || !auth.atLeast('manager')) {
+        return { success: false, error: 'Only Super Admin+ and above can edit customer records' };
+      }
+      if (uid === auth.currentUser.uid) {
+        return { success: false, error: 'You cannot edit your own account from here' };
+      }
+
+      // Only these fields may be changed by support. Anything else on the user
+      // record (role, uid, timestamps) is off limits by construction.
+      const allowed = ['name', 'email', 'phone', 'emailVerified'];
+      const updates = {};
+      allowed.forEach((field) => {
+        if (patch[field] !== undefined) {
+          const v = patch[field];
+          updates['users/' + uid + '/' + field] = (v === '' || v === null) ? null : v;
+        }
+      });
+      if (!Object.keys(updates).length) {
+        return { success: false, error: 'Nothing to update' };
+      }
+
+      try {
+        updates['users/' + uid + '/updatedAt'] = this._stamp();
+        await db.ref().update(updates);
+        return { success: true, updated: Object.keys(updates).length - 1 };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+
     /* ----------------------------------------------------------- NOTIFICATIONS */
 
     listenToNotifications: function (callback) {
