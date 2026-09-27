@@ -829,6 +829,19 @@
       if (seo.description) document.getElementById('settingSeoDesc').value = seo.description;
     });
 
+    // The announcement bar is part of the same settings record, so it loads here.
+    window.VrindaAdmin.listenToSettings((settings) => {
+      const a = settings.announcement || {};
+      const textEl = document.getElementById('settingAnnouncementText');
+      const labelEl = document.getElementById('settingAnnouncementLabel');
+      const linkEl = document.getElementById('settingAnnouncementLink');
+      const onEl = document.getElementById('settingAnnouncementEnabled');
+      if (textEl) textEl.value = a.text || '';
+      if (labelEl) labelEl.value = a.linkLabel || '';
+      if (linkEl) linkEl.value = a.link || '';
+      if (onEl) onEl.checked = a.enabled !== false;
+    });
+
     document.getElementById('btnSaveStoreSettings')?.addEventListener('click', async () => {
       const thresholdRaw = document.getElementById('settingFreeShipping').value.trim();
       const feeRaw = document.getElementById('settingShippingFee').value.trim();
@@ -837,7 +850,13 @@
         whatsapp: document.getElementById('settingWhatsapp').value.trim(),
         email: document.getElementById('settingEmail').value.trim(),
         freeShippingThreshold: thresholdRaw === '' ? 1499 : Number(thresholdRaw),
-        shippingFee: feeRaw === '' ? 99 : Number(feeRaw)
+        shippingFee: feeRaw === '' ? 99 : Number(feeRaw),
+        announcement: {
+          enabled: document.getElementById('settingAnnouncementEnabled')?.checked !== false,
+          text: (document.getElementById('settingAnnouncementText')?.value || '').trim(),
+          linkLabel: (document.getElementById('settingAnnouncementLabel')?.value || '').trim(),
+          link: (document.getElementById('settingAnnouncementLink')?.value || '').trim()
+        }
       };
 
       if (Number.isNaN(settingsPayload.freeShippingThreshold) || Number.isNaN(settingsPayload.shippingFee)) {

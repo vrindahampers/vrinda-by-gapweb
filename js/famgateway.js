@@ -70,6 +70,24 @@
          https://us-central1-vrindahampers-db.cloudfunctions.net/verifyFamGatewayOrder
          https://us-central1-vrindahampers-db.cloudfunctions.net/famgatewayWebhook  (optional)
 
+       > **⚠️ Cloud Functions require the Blaze plan.** On the free (Spark) plan,
+       > `firebase deploy --only functions` fails with "Your project must be on the
+       > Blaze (pay-as-you-go) plan" — the secret manager, Cloud Functions, Cloud
+       > Build and Artifact Registry APIs all require it. The **database rules
+       > deploy fine on Spark** (`firebase deploy --only database`).
+       >
+       > Options:
+       >   1. Upgrade to Blaze (needs a billing card; a small store stays well
+       >      inside the free tier) and run the two commands above — the only way to
+       >      get automatic verification.
+       >   2. Ask FamGateway to send CORS headers on /api/verify-order.php and
+       >      /api/checkout-status.php (they already do on /api/create-order), and
+       >      the browser can verify directly with no function at all.
+       >   3. Stay on Spark and reconcile manually: real payments still work, each
+       >      order is created with payment.verified:false plus a red "⚠️ Payment
+       >      unverified" badge and its UTR, and "✓ Mark Paid" records the match
+       >      against your FamPay dashboard. One click per order, nothing lost.
+       >
        Until then, captured payments are still booked - flagged "Payment
        unverified" in the admin portal for manual confirmation from FamPay. --- */
     proxyCreateOrderUrl: '',

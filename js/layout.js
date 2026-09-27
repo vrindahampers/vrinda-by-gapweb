@@ -6,6 +6,10 @@
 (function () {
   'use strict';
 
+  // Relative prefix back to the site root, captured during initLayout so the
+  // announcement-link resolver (which runs on every settings change) can use it.
+  let currentBasePath = './';
+
   function initLayout() {
     const headerPlaceholder = document.getElementById('vrinda-header');
     const footerPlaceholder = document.getElementById('vrinda-footer');
@@ -14,6 +18,7 @@
     // Every directory-level route needs its own relative prefix back to the site root.
     const SECTION_DIRS = ['/pages/', '/admin/', '/category/', '/product/', '/custom/'];
     const basePath = computeBasePath();
+    currentBasePath = basePath;
 
     function computeBasePath() {
       // A <base href> (used by 404.html on deep pretty URLs) already fixes the root.
@@ -223,19 +228,32 @@
   }
 
   /**
-   * Push admin-managed store settings (free-delivery threshold, WhatsApp
-   * number) into the injected chrome: announcement bar + every wa.me link.
-   * Driven live by the "vrinda:settings-changed" event from VrindaStore.
+   * Push admin-managed store settings into the injected chrome: the announcement
+   * bar (text, link and on/off are all editable in Admin -> Store Settings) and
+   * every wa.me link. Driven live by the "vrinda:settings-changed" event.
    */
   function applyStoreChrome(cfg) {
     if (!cfg) return;
 
-    if (cfg.freeShippingThreshold != null && !Number.isNaN(Number(cfg.freeShippingThreshold))) {
-      const bar = document.querySelector('.announcement-bar');
-      if (bar) {
-        const threshold = Number(cfg.freeShippingThreshold).toLocaleString('en-IN');
-        bar.innerHTML = 'Handcrafted with endless love 🌸 Free standard delivery on orders above ₹' +
-          threshold + '! <a href="#personalized">Explore Custom Gifts</a>';
+    const bar = document.querySelector('.announcement-bar');
+    if (bar) {
+      const announcement = cfg.announcement;
+
+      if (announcement && announcement.enabled === false) {
+        bar.style.display = 'none';
+      } else if (cfg.freeShippingThreshold != null && !Number.isNaN(Number(cfg.freeShippingThreshold))) {
+        const threshold = '₹' + Number(cfg.freeShippingThreshold).toLocaleString('en-IN');
+        const fallback = 'Handcrafted with endless love 🌸 Free standard delivery on orders above ' + threshold + '!';
+        // {threshold} keeps the admin's sentence live without hard-coding a price.
+        const text = announcement && announcement.text
+          ? String(announcement.text).replace(/\{threshold\}/g, threshold)
+          : fallback;
+
+        const label = (announcement && announcement.linkLabel) || 'Explore Custom Gifts';
+        const href = resolveAnnouncementLink(announcement && announcement.link);
+
+        bar.style.display = '';
+        bar.innerHTML = escapeHtml(text) + ' <a href="' + escapeHtml(href) + '">' + escapeHtml(label) + '</a>';
       }
     }
 
@@ -260,6 +278,27 @@
       const meta = document.querySelector('meta[name="description"]');
       if (meta) meta.setAttribute('content', seo.description);
     }
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+    ));
+  }
+
+  /**
+   * Turns whatever the admin typed for the announcement link into an href that
+   * works on EVERY page. The old hard-coded "#personalized" only did anything on
+   * the homepage; a bare anchor is now resolved against the homepage, a relative
+   * path against the site root, and an absolute URL is left alone.
+   */
+  function resolveAnnouncementLink(link) {
+    const base = currentBasePath || './';
+    const value = String(link || '').trim();
+    if (!value) return base + 'index.html#personalized';
+    if (/^https?:\/\//i.test(value)) return value;
+    if (value.charAt(0) === '#') return base + 'index.html' + value;
+    return base + value.replace(/^\.\//, '');
   }
 
   // Live re-apply whenever the Super Admin saves Store Settings & SEO.

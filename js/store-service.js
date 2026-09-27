@@ -952,6 +952,18 @@
       const fee = num(s.shippingFee);
       if (fee !== null && !Number.isNaN(fee) && fee >= 0) next.standardShippingFee = fee;
 
+      // The announcement bar is fully admin-managed (text, link, on/off).
+      if (s.announcement && typeof s.announcement === 'object') {
+        next.announcement = {
+          enabled: s.announcement.enabled !== false,
+          text: String(s.announcement.text || ''),
+          linkLabel: String(s.announcement.linkLabel || ''),
+          link: String(s.announcement.link || '')
+        };
+      } else {
+        delete next.announcement;
+      }
+
       this._rtdbConfig = next;
       document.dispatchEvent(new CustomEvent('vrinda:settings-changed', { detail: this.config() }));
     };
