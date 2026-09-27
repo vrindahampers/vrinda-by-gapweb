@@ -115,10 +115,10 @@
   /**
    * LOCAL DEVELOPMENT KEY — never committed, never shared.
    *
-   * The repository ships apiKey: '' and the deploy workflow injects the real key
-   * into the published copy, so there is deliberately no key in the file you edit.
-   * To take real payments while testing on localhost, paste the key once into
-   * this browser's console:
+   * The repository ships an empty apiKey and the deploy workflow injects the real
+   * key into the published copy, so there is deliberately no key in the file you
+   * edit. To take real payments while testing on localhost, paste the key once
+   * into this browser's console:
    *
    *   localStorage.setItem('vrinda:famgateway-key', 'fam_xxxxxxxx');
    *   location.reload();
@@ -187,7 +187,7 @@
   Gateway.missingConfig = function () {
     const missing = [];
     if (this.isSimulationMode()) {
-      missing.push('merchant key — the repository intentionally ships apiKey: \'\' so no credential is committed. ' +
+      missing.push('merchant key — the repository intentionally ships an empty apiKey so no credential is committed. ' +
         'For real payments on THIS device run in the browser console: ' +
         'localStorage.setItem(\'vrinda:famgateway-key\', \'fam_…\'), then reload. ' +
         'The deployed site gets its key automatically from the GitHub Actions secret.');
