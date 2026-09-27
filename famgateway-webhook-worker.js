@@ -75,25 +75,54 @@ function pick(payload, names) {
     }
   }
   return '';
+}
 
 export default {
   async fetch(request, env) {
+    const strict = env.STRICT_SIGNATURE !== 'false' && env.STRICT_SIGNATURE !== false;
+
     if (request.method === 'GET') {
-      // Handy for checking the worker is alive.
-      return json({ ok: true, service: 'famgateway-webhook', configured: !!env.RTDB_AUTH_TOKEN });
+      // Handy for checking the worker is alive and fully configured.
+      return json({
+        ok: true,
+        service: 'famgateway-webhook',
+        configured: !!(env.RTDB_AUTH_TOKEN && env.FAMGATEWAY_API_KEY),
+        hasRtdbToken: !!env.RTDB_AUTH_TOKEN,
+        hasApiKey: !!env.FAMGATEWAY_API_KEY,
+        strictSignature: strict
+      });
     }
 
     if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
+    // ---- 0. fail closed when a secret is missing ---------------------------
+    // Never accept a payment notification while we cannot verify it or cannot
+    // write the result. 503 makes FamGateway retry once the secret is added.
+    const missing = [];
+    if (!env.RTDB_AUTH_TOKEN) missing.push('RTDB_AUTH_TOKEN');
+    if (!env.FAMGATEWAY_API_KEY) missing.push('FAMGATEWAY_API_KEY');
+    if (missing.length) {
+      console.error('worker not configured; missing ' + missing.join(', '));
+      return json({ error: 'Worker not configured', missing: missing }, 503);
+    }
+
     const raw = await request.text();
 
     // ---- 1. verify the signature -------------------------------------------
+    // FamGateway signs with HMAC-SHA256 keyed by the default API key and sends the
+    // result in X-FamGateway-Signature (hex or base64). Set STRICT_SIGNATURE=false
+    // only as a temporary diagnostic if your gateway posts without the header.
     const provided = normaliseSignature(request.headers.get('x-famgateway-signature') ||
       request.headers.get('x-signature'));
-    if (env.FAMGATEWAY_API_KEY) {
-      if (!provided) return json({ error: 'Missing signature' }, 401);
+
+    if (strict) {
+      if (!provided) {
+        return json({ error: 'Missing X-FamGateway-Signature header' }, 401);
+      }
       const expected = await hmacHex(env.FAMGATEWAY_API_KEY, raw);
       if (provided !== expected) return json({ error: 'Invalid signature' }, 401);
+    } else if (!provided) {
+      console.warn('webhook received without a signature header (STRICT_SIGNATURE is off)');
     }
 
     // ---- 2. normalise the payload ------------------------------------------
@@ -104,8 +133,15 @@ export default {
     const orderId = String(pick(data, ['order_id', 'orderId', 'id', 'gateway_order_id']));
     if (!orderId) return json({ error: 'No order id in payload' }, 400);
 
+    // A test ping ("is_test": true) must never mark a real payment paid.
+    if (data.is_test === true || data.is_test === 'true' || /^TEST-/i.test(orderId)) {
+      return json({ ignored: true, reason: 'Test event', orderId: orderId }, 200);
+    }
+
+    const event = String(pick(data, ['event', 'type']) || '');
     const status = String(pick(data, ['status', 'payment_status', 'state']) || '').toLowerCase();
-    const paid = ['success', 'paid', 'captured', 'completed'].includes(status);
+    const paid = ['success', 'paid', 'captured', 'completed'].includes(status) &&
+      (event === '' || /success|paid|captured|completed/.test(event.toLowerCase()));
 
     // ---- 3. only ever patch an EXISTING session ----------------------------
     // Checkout writes the session with status "created" before redirecting.
@@ -141,4 +177,3 @@ export default {
   }
 };
 
-}
