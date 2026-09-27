@@ -342,6 +342,11 @@
                 <button class="btn btn-xs btn-glass js-verify-payment" data-order-id="${o.orderId}" style="color: var(--color-primary-dark);">
                   ✓ Mark Paid
                 </button>` : ''}
+              ${canDeleteOrders() ? `
+                <button class="btn btn-xs btn-outline js-delete-order" data-order-id="${o.orderId}" data-user-id="${escAttr(o.userId || '')}"
+                        style="color: var(--color-error); border-color: var(--color-error);">
+                  🗑 Delete
+                </button>` : ''}
             </div>
           </td>
         </tr>
@@ -1266,6 +1271,66 @@
       btn.addEventListener('click', () => {
         openAssignDeliveryModal(btn.getAttribute('data-order-id'));
       });
+    });
+
+    container.querySelectorAll('.js-delete-order').forEach(btn => {
+      btn.addEventListener('click', () => {
+        confirmDeleteOrder(btn.getAttribute('data-order-id'), btn.getAttribute('data-user-id'));
+      });
+    });
+  }
+
+  /**
+   * Deleting an order is irreversible: the order row, its tracking timeline and
+   * the customer's index entry all disappear, and the customer loses the ability
+   * to see or track it. The database rules reserve this for Super Admin+ and
+   * Super Admin++ (see orders/$orderId/.write in database.rules.json), so the
+   * button only appears for those roles and the write is refused for anyone else
+   * even if the markup were tampered with.
+   */
+  function canDeleteOrders() {
+    const auth = window.VrindaAuth;
+    return !!(auth && auth.atLeast && auth.atLeast('manager'));
+  }
+
+  /** Escaping for a value interpolated into an HTML attribute. */
+  function escAttr(value) {
+    return escText(value).replace(/`/g, '&#96;');
+  }
+
+  function confirmDeleteOrder(orderId, userId) {
+    if (!orderId) return;
+
+    const order = allOrders.find(o => o.orderId === orderId);
+    const who = order ? (order.customer?.name || order.customer?.phone || 'this customer') : 'this customer';
+
+    // Two deliberate steps: a warning, then the order id typed out. An order
+    // carrying a real payment must never go on a single mis-click.
+    if (!confirm(
+      'Delete order ' + orderId + '?\n\n' +
+      'Customer: ' + who + '\n' +
+      'This removes the order, its tracking timeline and the customer\'s order list.\n' +
+      'It CANNOT be undone.'
+    )) return;
+
+    const typed = prompt('To confirm, type the order number exactly: ' + orderId);
+    if (typed === null) return;
+    if (typed.trim() !== orderId) {
+      alert('That did not match the order number. Nothing was deleted.');
+      return;
+    }
+
+    window.VrindaAdmin.deleteOrder(orderId, userId).then((res) => {
+      if (res.success) {
+        alert('Order ' + orderId + ' has been deleted.');
+        // Drop it locally too so the table updates without waiting for the
+        // live listener to round-trip.
+        allOrders = allOrders.filter(o => o.orderId !== orderId);
+        renderOrdersTable();
+        renderStats();
+      } else {
+        alert('Could not delete the order: ' + res.error);
+      }
     });
   }
   /* --------------------------------------------- CHECKLIST MODAL LOGIC */
