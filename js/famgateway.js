@@ -112,6 +112,35 @@
   // custom studio in /custom/, the homepage at the root).
   const SCRIPT_URL = (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) || '';
 
+  /**
+   * LOCAL DEVELOPMENT KEY — never committed, never shared.
+   *
+   * The repository ships apiKey: '' and the deploy workflow injects the real key
+   * into the published copy, so there is deliberately no key in the file you edit.
+   * To take real payments while testing on localhost, paste the key once into
+   * this browser's console:
+   *
+   *   localStorage.setItem('vrinda:famgateway-key', 'fam_xxxxxxxx');
+   *   location.reload();
+   *
+   * It is read only when the file itself has no key AND no proxy is configured,
+   * so the deployed site (which receives the key at build time) is unaffected.
+   */
+  const LOCAL_KEY_STORAGE = 'vrinda:famgateway-key';
+
+  (function applyLocalDevKey() {
+    if (cfg.apiKey && !isPlaceholder(cfg.apiKey)) return;
+    if (!isPlaceholder(cfg.proxyCreateOrderUrl) && !isPlaceholder(cfg.proxyVerifyOrderUrl)) return;
+    try {
+      if (typeof localStorage === 'undefined') return;
+      const stored = localStorage.getItem(LOCAL_KEY_STORAGE);
+      if (stored && stored.indexOf('fam_') === 0) {
+        cfg.apiKey = stored;
+        cfg.localDevKey = true;
+      }
+    } catch (err) { /* private mode / storage disabled */ }
+  })();
+
   function isPlaceholder(value) {
     if (!value) return true;
     return /YOUR_|xxxx|<region>|<project>|TODO/i.test(String(value));
@@ -158,7 +187,10 @@
   Gateway.missingConfig = function () {
     const missing = [];
     if (this.isSimulationMode()) {
-      missing.push('apiKey — paste your FamGateway merchant key into VRINDA_FAMGATEWAY_CONFIG.apiKey in js/famgateway.js');
+      missing.push('merchant key — the repository intentionally ships apiKey: \'\' so no credential is committed. ' +
+        'For real payments on THIS device run in the browser console: ' +
+        'localStorage.setItem(\'vrinda:famgateway-key\', \'fam_…\'), then reload. ' +
+        'The deployed site gets its key automatically from the GitHub Actions secret.');
     } else if (isPlaceholder(cfg.webhookUrl)) {
       missing.push('webhookUrl — optional: deploy /functions for instant capture (status polling works without it)');
     }

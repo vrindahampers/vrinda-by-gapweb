@@ -20,8 +20,16 @@ published copy only** — the repository and its history stay key-free.
 3. **Rotate the key once in the FamPay dashboard** and update the secret — the old
    key exists in this repository's earlier commits, so treat it as burned.
 
-For **local** testing, paste the key into `apiKey: ''` in `js/famgateway.js`
-temporarily and revert it before committing.
+For **local** testing, don't edit the file — put the key in your own browser once
+and take real payments immediately:
+
+```js
+// paste in the browser console on 127.0.0.1:5500, then reload the page
+localStorage.setItem('vrinda:famgateway-key', 'fam_…your-key…');
+```
+
+It is read **only** when the file has no key and no proxy is configured, so the
+deployed site (which gets the key injected at build time) always ignores it.
 
 ### What "Spark" means day to day
 
