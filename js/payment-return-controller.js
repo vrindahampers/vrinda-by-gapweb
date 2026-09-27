@@ -44,15 +44,47 @@
 
     /* ------------------------------------------------------------------ flow */
 
+    /**
+     * Recovers the FamGateway order id from our own checkout draft, which is
+     * saved before the redirect and mirrored to /checkoutDrafts/{uid}. This is
+     * the only recovery route that survives a cleared browser, a different
+     * device, or a payment app bouncing the customer through another browser.
+     * A draft is only trusted when it is the one named in the return link, or
+     * when it is fresh enough to belong to the payment being returned from.
+     */
+    async function recoverFromCheckoutDraft() {
+      if (!Orders || typeof Orders.loadCheckoutDraft !== 'function') return null;
+
+      let draft = null;
+      try { draft = await Orders.loadCheckoutDraft(); } catch (err) { draft = null; }
+      if (!draft || !draft.gatewayOrderId) return null;
+
+      if (returned.draftId && draft.draftId && draft.draftId !== returned.draftId) {
+        // A different draft: only trust it if it is genuinely recent.
+        const stamp = draft.savedAt || draft.createdAt || 0;
+        if (Date.now() - stamp > 90 * 60 * 1000) return null;
+      }
+
+      return { orderId: draft.gatewayOrderId, source: 'checkout-draft' };
+    }
+
     async function run() {
       UI.markSteps('returnSteps', 'session', 'done');
 
       // FamGateway's hosted page sends the customer back to a bare redirect_url,
       // so the order reference usually has to come from this device. Never leave a
       // captured payment unclaimed.
-      const resolved = Gateway.resolveReturnOrder
+      let resolved = Gateway.resolveReturnOrder
         ? Gateway.resolveReturnOrder(returned)
         : (returned.famgatewayOrderId ? { orderId: returned.famgatewayOrderId, source: 'return-link' } : null);
+
+      // Last resort: our own checkout draft carries the gateway order id, and it is
+      // mirrored to /checkoutDrafts/{uid}. That recovers the payment even when the
+      // link has no order_id AND the browser stash is gone (storage cleared, a
+      // different device, or a redirect through another app).
+      if (!resolved || !resolved.orderId) {
+        resolved = await recoverFromCheckoutDraft();
+      }
 
       if (!resolved || !resolved.orderId) {
         fail('No FamGateway order reference was found in the return link.',
@@ -63,7 +95,9 @@
       if (resolved.orderId !== returned.famgatewayOrderId) {
         returned.famgatewayOrderId = resolved.orderId;
         UI.notice('returnNotice',
-          '<strong>We recovered your payment session from this device.</strong> Verifying it with FamGateway now…',
+          '<strong>We recovered your payment session' +
+          (resolved.source === 'checkout-draft' ? ' from your saved checkout' : ' from this device') + '.</strong> ' +
+          'Verifying it with FamGateway now…',
           'info');
       }
 
