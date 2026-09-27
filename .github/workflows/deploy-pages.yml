@@ -86,6 +86,7 @@ jobs:
             .pages/FAMGATEWAY_SETUP.md
             .pages/ROUTING_AND_SEO.md
             .pages/GITHUB_HOSTING.md
+            .pages/NEWSLETTER.md
             .pages/database.rules.json
             .pages/firebase.json
             .pages/.firebaserc

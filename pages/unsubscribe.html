@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unsubscribe — vrindahampers</title>
+  <meta name="description" content="Unsubscribe from the vrindahampers Inner Circle newsletter.">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#c95d73">
+  <link rel="icon" type="image/svg+xml" href="../assets/icons/favicon.svg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+  <div id="vrinda-header"></div>
+
+  <main class="section" style="padding-top: 3rem; padding-bottom: 5rem;">
+    <div class="container" style="max-width: 620px;">
+
+      <nav class="breadcrumb-nav" aria-label="Breadcrumb">
+        <a href="../index.html">Home</a> <span>/</span>
+        <span style="color: var(--color-text-main); font-weight: 600;">Unsubscribe</span>
+      </nav>
+
+      <div class="page-head">
+        <span class="section-tag">Inner Circle</span>
+        <h1 style="font-size: clamp(1.8rem, 3vw, 2.4rem);">Unsubscribe</h1>
+        <p>Changed your mind, or the emails were too frequent? Enter the address you signed up with and we will stop sending you the newsletter straight away.</p>
+      </div>
+
+      <div class="glass-panel" style="padding: clamp(1.5rem, 4vw, 2.5rem);">
+        <form id="unsubForm" novalidate style="display: flex; flex-direction: column; gap: 1rem;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="unsubEmail">Email address</label>
+            <input type="email" id="unsubEmail" class="form-input" placeholder="you@example.com" required autocomplete="email">
+          </div>
+          <button type="submit" class="btn btn-primary" id="unsubBtn" style="justify-content: center;">Unsubscribe me</button>
+        </form>
+
+        <div id="unsubMsg" style="margin-top: 1rem; font-size: 14px; font-weight: 500;"></div>
+      </div>
+
+      <p style="margin-top: 1.5rem; font-size: 13px; color: var(--color-text-muted);">
+        Changed your email address instead? Write to us on WhatsApp and we will move you across.
+        Your order receipts and delivery updates are sent separately and are unaffected by this.
+      </p>
+
+    </div>
+  </main>
+
+  <script src="../js/firebase-config.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/newsletter-service.js"></script>
+  <script src="../js/layout.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      const NL = window.VrindaNewsletter;
+      const form = document.getElementById('unsubForm');
+      const input = document.getElementById('unsubEmail');
+      const msg = document.getElementById('unsubMsg');
+      const btn = document.getElementById('unsubBtn');
+      if (!form || !NL) return;
+
+      const setMsg = (text, color) => { msg.textContent = text; msg.style.color = color; };
+
+      // Campaign links can carry ?email= so the reader does not retype it.
+      const preset = new URLSearchParams(window.location.search).get('email');
+      if (preset) input.value = preset;
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = input.value.trim();
+        if (!NL.isValidEmail(email)) { setMsg('Please enter a valid email address.', 'var(--color-error)'); return; }
+
+        btn.disabled = true; btn.textContent = 'Unsubscribing…';
+        const res = await NL.unsubscribe(email);
+        btn.disabled = false; btn.textContent = 'Unsubscribe me';
+
+        if (res.success) {
+          form.style.display = 'none';
+          setMsg('You have been unsubscribed. Sorry to see you go — you can rejoin any time.', 'var(--color-success)');
+        } else {
+          setMsg(res.error || 'We could not find that address. Please try again.', 'var(--color-error)');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

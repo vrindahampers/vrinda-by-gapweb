@@ -335,27 +335,81 @@
   }
 
   // Section 13: Newsletter Form Handler
+  //
+  // This used to show a thank-you and throw the address away, so the list could
+  // never be exported or mailed. It now persists through VrindaNewsletter, and a
+  // visitor who has already joined is shown a confirmation instead of the form,
+  // so nobody is asked twice.
   function initNewsletterForm() {
     const form = document.getElementById('newsletterForm');
     const input = document.getElementById('newsletterEmail');
     const msg = document.getElementById('newsletterMsg');
+    const section = document.getElementById('newsletter');
+    const NL = window.VrindaNewsletter;
 
-    form?.addEventListener('submit', (e) => {
+    // No Firebase, or no service loaded: leave the form exactly as it was so a
+    // store with a placeholder config still renders.
+    if (!form || !NL) return;
+
+    const setMsg = (text, color) => {
+      if (!msg) return;
+      msg.textContent = text;
+      msg.style.color = color;
+    };
+
+    const showAlreadyJoined = () => {
+      form.style.display = 'none';
+      if (section) {
+        // Swap the call to action for a confirmation so the block is not a
+        // large empty box.
+        const head = section.querySelector('h2');
+        const sub = section.querySelector('p');
+        if (head) head.innerHTML = "You're In The Inner Circle";
+        if (sub) sub.textContent = 'You are already on the list — watch your inbox for secret discount codes and early access.';
+      }
+      setMsg('Subscribed — thank you for joining us!', 'var(--color-success)');
+    };
+
+    // Auth may still be resolving, so check "already joined" once the session
+    // is known rather than guessing for a signed-out visitor.
+    const checkExisting = () => {
+      Promise.resolve(NL.hasSubscribed())
+        .then((already) => { if (already) showAlreadyJoined(); })
+        .catch(() => { /* leave the form usable */ });
+    };
+    if (window.VrindaAuth && typeof window.VrindaAuth.whenReady === 'function') {
+      window.VrindaAuth.whenReady(checkExisting);
+    } else {
+      checkExisting();
+    }
+
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = input?.value.trim();
-      if (!email || !email.includes('@')) {
-        if (msg) {
-          msg.textContent = 'Please enter a valid email address.';
-          msg.style.color = 'var(--color-error)';
-        }
+      const email = input ? input.value.trim() : '';
+      const button = form.querySelector('button[type="submit"]');
+      const originalLabel = button ? button.textContent : '';
+
+      if (!NL.isValidEmail(email)) {
+        setMsg('Please enter a valid email address.', 'var(--color-error)');
         return;
       }
 
-      if (msg) {
-        msg.textContent = 'Thank you for subscribing! Your VIP gifting code will arrive shortly.';
-        msg.style.color = 'var(--color-success)';
+      // Guard against a double-click creating a confusing double submit.
+      if (button) { button.disabled = true; button.textContent = 'Joining…'; }
+      setMsg('', 'inherit');
+
+      const res = await NL.subscribe(email, { source: 'homepage' });
+      if (!res.success) {
+        setMsg(res.error || 'Something went wrong. Please try again.', 'var(--color-error)');
+        if (button) { button.disabled = false; button.textContent = originalLabel; }
+        return;
       }
+
       form.reset();
+      showAlreadyJoined();
+      if (res.alreadySubscribed) {
+        setMsg('You were already on the list — welcome back!', 'var(--color-success)');
+      }
     });
   }
 })();

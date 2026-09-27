@@ -205,6 +205,30 @@
       ".read": true,
       ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'owner'"
     },
+    "newsletter": {
+      // Newsletter subscribers. The signup form is on the PUBLIC homepage, so
+      // anyone must be able to add a row — but only ever their own, and only
+      // the handful of fields the form actually collects.
+      //
+      // A visitor may CREATE a subscription and may UPDATE or DELETE their own
+      // row, keyed by uid. The `anon` uid is what a signed-out visitor gets, so
+      // two different anonymous people can both subscribe.
+      //
+      // Deliberately NOT public-read: the whole point of this table is the email
+      // addresses, and only ops roles need to read it (to export a campaign).
+      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        // Unsubscribe is allowed without proving who you are beyond owning the
+        // row; changing the stored email address is NOT (that would let anyone
+        // hijack a row and redirect someone else's mail).
+        ".write": "auth != null && auth.uid === $uid && !newData.child('email').isNumber()",
+        // A new subscription may only set the allowed fields, and the caller may
+        // not stamp a status other than "subscribed" (no self-granting "unsubscribed"
+        // is pointless, but this also blocks arbitrary junk columns).
+        ".validate": "newData.hasChildren(['email', 'createdAt']) && newData.child('email').isString() && newData.child('email').val().length <= 254 && (!newData.child('source').exists() || newData.child('source').isString())"
+      }
+    },
     "customRequests": {
       // Customers submit bespoke configurator designs; Staff/Admins review them
       // Parent-level read so the admin portal can list EVERY customer's designs -

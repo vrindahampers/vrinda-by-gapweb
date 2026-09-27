@@ -51,6 +51,10 @@
         <button class="admin-nav-item" data-tab="custom">
           <span>🎨</span> Custom Studio <span id="customBadge" class="badge badge-error" style="display: none; margin-left: auto;">0</span>
         </button>
+        <button class="admin-nav-item" data-tab="newsletter">
+          <span>✉️</span> Newsletter
+          <span id="newsletterBadge" class="badge badge-accent" style="display: none; margin-left: auto;">0</span>
+        </button>
         <button class="admin-nav-item" data-tab="reviews">
           <span>⭐</span> Customer Reviews
         </button>
@@ -252,6 +256,56 @@
       </section>
 
       <!-- Section 5: Reviews Moderation -->
+      <section id="tab-newsletter" class="admin-tab-section" style="display: none;">
+        <div class="admin-header">
+          <div class="admin-header-title">
+            <h1>Inner Circle Subscribers</h1>
+            <p>Everyone who signed up for the newsletter. Export the list to run a campaign in Gmail, Google Sheets or Mailchimp.</p>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn btn-outline btn-sm" id="btnRefreshNewsletter">Refresh</button>
+            <button class="btn btn-primary btn-sm" id="btnExportNewsletter">⬇ Export CSV</button>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 1.5rem; margin-bottom: 1.25rem; flex-wrap: wrap;">
+          <div class="stat-card" style="flex: 1; min-width: 150px;">
+            <div class="stat-label">Subscribed</div>
+            <div class="stat-value" id="newsletterSubscribedCount">0</div>
+          </div>
+          <div class="stat-card" style="flex: 1; min-width: 150px;">
+            <div class="stat-label">Unsubscribed</div>
+            <div class="stat-value" id="newsletterUnsubscribedCount">0</div>
+          </div>
+          <div class="stat-card" style="flex: 1; min-width: 150px;">
+            <div class="stat-label">Signed in when they joined</div>
+            <div class="stat-value" id="newsletterSignedInCount">0</div>
+          </div>
+        </div>
+
+        <div id="newsletterNotice" class="notice-bar" style="display: none;"></div>
+
+        <div class="admin-table-container">
+          <div style="overflow-x: auto;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Name</th>
+                  <th>Signed up</th>
+                  <th>Account</th>
+                  <th>Source</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="newsletterTbody">
+                <tr><td colspan="6" style="text-align: center; padding: 2rem;">Loading subscribers...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <section id="tab-reviews" class="admin-tab-section" style="display: none;">
         <div class="admin-header">
           <div class="admin-header-title">

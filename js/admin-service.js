@@ -103,6 +103,77 @@
       }
     },
 
+    /* ----------------------------------------------------------- NEWSLETTER */
+
+    /**
+     * Every newsletter row (ops roles only — the database rules gate the read).
+     * @returns {Promise<{success:boolean, rows?:Array, error?:string}>}
+     */
+    listNewsletter: async function () {
+      const db = this._db();
+      if (!db) return { success: false, error: 'Database unavailable' };
+      try {
+        const snap = await db.ref('newsletter').once('value');
+        const val = snap.val() || {};
+        const rows = Object.keys(val).map((key) => Object.assign({ key: key }, val[key]));
+        rows.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        return { success: true, rows: rows };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+
+    /**
+     * Render newsletter rows as CSV text, ready to import into Gmail, Google
+     * Sheets, Mailchimp or wherever the campaign is run from.
+     *
+     * Only the status "subscribed" rows are included by default: a campaign must
+     * never mail somebody who unsubscribed. Values are quoted and internal
+     * quotes doubled, because a comma inside a name or note would otherwise
+     * shift every following column.
+     */
+    newsletterToCsv: function (rows, options) {
+      const opts = options || {};
+      const includeUnsubscribed = !!opts.includeUnsubscribed;
+      const list = (rows || []).filter((r) => includeUnsubscribed || r.status !== 'unsubscribed');
+
+      const cell = (value) => {
+        const s = value === undefined || value === null ? '' : String(value);
+        return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      };
+      // Header names are chosen to be readable in Sheets AND usable as a
+      // Gmail "To" column, which is the whole reason this export exists.
+      const header = ['email', 'name', 'signed_up_on', 'user_id', 'source', 'status'];
+      const isoDate = (ms) => {
+        if (!ms) return '';
+        // ServerValue resolves to a number once stored; guard the type anyway.
+        const d = new Date(Number(ms) || ms);
+        return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+      };
+      const rowsCsv = list.map((r) => [
+        cell(r.email), cell(r.userName), cell(isoDate(r.createdAt)),
+        cell(r.userId), cell(r.source), cell(r.status || 'subscribed')
+      ].join(','));
+
+      return [header.join(',')].concat(rowsCsv).join('\n');
+    },
+
+    /** Trigger a browser download of the CSV without touching the network. */
+    downloadNewsletterCsv: function (rows, filename) {
+      const csv = this.newsletterToCsv(rows);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || ('newsletter-' + new Date().toISOString().slice(0, 10) + '.csv');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      // Revoke on the next tick so Safari has time to start the download.
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+      return csv;
+    },
+
     /* ----------------------------------------------------------- NOTIFICATIONS */
 
     listenToNotifications: function (callback) {

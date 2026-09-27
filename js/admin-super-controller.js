@@ -20,6 +20,9 @@
   let customLoadError = null;
   let allFaqs = [];
   let faqLoadError = null;
+  // Newsletter subscribers, fetched when the tab is opened or refreshed.
+  let newsletterRows = [];
+  let newsletterLoadError = null;
   let editingFaqId = null;
 
   async function initSuperAdmin() {
@@ -63,6 +66,11 @@
           sec.style.display = isActive ? 'block' : 'none';
           sec.classList.toggle('is-active', isActive);
         });
+
+        // The newsletter list is fetched the first time the tab is opened, and
+        // on Refresh, rather than held on a live subscription. It is a one-shot
+        // read of a list that only changes when somebody signs up.
+        if (targetTab === 'newsletter') loadNewsletterTable();
       });
     });
   }
@@ -141,6 +149,21 @@
 
     // 9. Settings initial load
     loadSettings();
+
+    // 10. Newsletter: loaded on demand rather than live, because the admin
+    // only needs the list when running a campaign, and it can be large.
+    const refreshBtn = document.getElementById('btnRefreshNewsletter');
+    const exportBtn = document.getElementById('btnExportNewsletter');
+    if (refreshBtn) refreshBtn.addEventListener('click', loadNewsletterTable);
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => {
+        if (!newsletterRows.length) {
+          alert('There are no subscribers to export yet.');
+          return;
+        }
+        window.VrindaAdmin.downloadNewsletterCsv(newsletterRows);
+      });
+    }
 
     // Filters and Search
     const searchInput = document.getElementById('orderSearchInput');
@@ -834,6 +857,90 @@
         }
       });
     });
+  }
+
+  /* ------------------------------------------------------- NEWSLETTER SUBSCRIBERS */
+
+  /**
+   * Load the subscriber list and render it. Kept separate from the other
+   * listeners because it is a one-shot read: the list only changes when
+   * somebody signs up, and it can be large enough that a live subscription
+   * would be wasteful.
+   */
+  async function loadNewsletterTable() {
+    const tbody = document.getElementById('newsletterTbody');
+    if (!tbody) return;
+
+    if (!newsletterRows.length && !newsletterLoadError) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">Loading subscribers...</td></tr>';
+    }
+
+    const res = await window.VrindaAdmin.listNewsletter();
+    if (!res.success) {
+      newsletterLoadError = res.error;
+      // A PERMISSION_DENIED here almost always means the rules were not
+      // re-published, so say so rather than showing an empty table.
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--color-error);">' +
+        'Could not load subscribers. Publish the database rules first:<br>firebase deploy --only database' +
+        '<br><small style="color: var(--color-text-muted);">' + escapeText(res.error || '') + '</small></td></tr>';
+      return;
+    }
+
+    newsletterLoadError = null;
+    newsletterRows = res.rows;
+    renderNewsletterTable();
+  }
+
+  function renderNewsletterTable() {
+    const tbody = document.getElementById('newsletterTbody');
+    if (!tbody) return;
+
+    const setCount = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    };
+    const active = newsletterRows.filter((r) => r.status !== 'unsubscribed');
+    setCount('newsletterSubscribedCount', active.length);
+    setCount('newsletterUnsubscribedCount', newsletterRows.length - active.length);
+    setCount('newsletterSignedInCount', active.filter((r) => r.userId).length);
+
+    const badge = document.getElementById('newsletterBadge');
+    if (badge) {
+      badge.textContent = active.length;
+      badge.style.display = active.length ? '' : 'none';
+    }
+
+    if (!newsletterRows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--color-text-muted);">' +
+        'No subscribers yet. Sign-ups from the homepage appear here.</td></tr>';
+      return;
+    }
+
+    const fmtDate = (ms) => {
+      if (!ms) return '—';
+      const d = new Date(Number(ms));
+      return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    };
+
+    tbody.innerHTML = newsletterRows.map((r) => {
+      const isUnsub = r.status === 'unsubscribed';
+      return '<tr' + (isUnsub ? ' style="opacity: 0.55;"' : '') + '>' +
+        '<td><strong>' + escapeText(r.email) + '</strong></td>' +
+        '<td>' + escapeText(r.userName || '—') + '</td>' +
+        '<td>' + fmtDate(r.createdAt) + '</td>' +
+        '<td>' + (r.userId ? '<span title="' + escapeText(r.userId) + '">Linked account</span>' : 'Guest') + '</td>' +
+        '<td>' + escapeText(r.source || 'homepage') + '</td>' +
+        '<td><span class="badge ' + (isUnsub ? 'badge-subtle' : 'badge-new') + '">' +
+          (isUnsub ? 'Unsubscribed' : 'Subscribed') + '</span></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  /** Minimal escaping for admin-rendered text (the full helper lives in commerce-ui). */
+  function escapeText(value) {
+    return String(value === undefined || value === null ? '' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   /* ------------------------------------------------- STORE SETTINGS & SEO */
