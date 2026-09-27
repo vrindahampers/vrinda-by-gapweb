@@ -12,12 +12,24 @@
     currentProfile: null,
     listeners: [],
     authResolved: false,   // becomes true once Firebase reports the restored session
+    sdkReady: false,       // true only once the Firebase Auth SDK is actually wired up
+
+    /**
+     * Sign-in availability. The module object always exists (other pages check for
+     * it), but it is useless until init() has attached the Firebase auth listener —
+     * a page must use this rather than a truthiness check on VrindaAuth.
+     */
+    isReady: function () {
+      return !!(this.sdkReady && typeof firebase !== 'undefined' && firebase.auth);
+    },
 
     init: function () {
       if (typeof firebase === 'undefined' || !firebase.auth) {
         console.warn('Firebase Auth SDK not detected.');
         return;
       }
+
+      AuthManager.sdkReady = true;
 
       firebase.auth().onAuthStateChanged((user) => {
         AuthManager.authResolved = true;
