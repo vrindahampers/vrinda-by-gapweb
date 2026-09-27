@@ -46,6 +46,10 @@
     // Live overrides pushed from the admin-managed /settings + /seo RTDB nodes.
     _rtdbConfig: {},
     _seo: {},
+    // Resolved by the first /cart/{uid} snapshot so pages can await the real cart
+    // instead of painting a false "empty cart" while the read is still in flight.
+    _cartReady: null,
+    _resolveCartReady: null,
 
     /* ------------------------------------------------------------------ utils */
 
@@ -119,6 +123,14 @@
 
     this._unbindUser();
     this._uid = uid;
+    this._cartReady = new Promise((resolve) => { this._resolveCartReady = resolve; });
+
+    const settleCartReady = () => {
+      if (!this._resolveCartReady) return;
+      const resolve = this._resolveCartReady;
+      this._resolveCartReady = null;
+      resolve(this.cart);
+    };
 
     this._cartRef = db.ref(CART_NODE + '/' + uid);
     this._cartHandler = this._cartRef.on('value', (snap) => {
@@ -129,7 +141,12 @@
       };
       this.refreshBadges();
       this._notify(this._cartListeners, this.cart);
-    }, (err) => console.warn('Cart sync warning:', err.message));
+      settleCartReady();
+    }, (err) => {
+      // A denied or offline read must not strand the checkout on a spinner.
+      console.warn('Cart sync warning:', err.message);
+      settleCartReady();
+    });
 
     this._wishlistRef = db.ref(WISHLIST_NODE + '/' + uid);
     this._wishlistHandler = this._wishlistRef.on('value', (snap) => {
@@ -143,6 +160,14 @@
   Store._unbindUser = function () {
     if (this._cartRef && this._cartHandler) this._cartRef.off('value', this._cartHandler);
     if (this._wishlistRef && this._wishlistHandler) this._wishlistRef.off('value', this._wishlistHandler);
+
+    // Never leave a whenCartReady() waiter hanging when the user signs out.
+    if (this._resolveCartReady) {
+      const resolve = this._resolveCartReady;
+      this._resolveCartReady = null;
+      resolve(this.cart);
+    }
+    this._cartReady = null;
 
     this._cartRef = null;
     this._wishlistRef = null;
@@ -164,6 +189,21 @@
     if (typeof cb !== 'function') return;
     this._cartListeners.push(cb);
     cb(this.cart);
+  };
+
+  /**
+   * Waits for the first /cart/{uid} snapshot (the RTDB read is asynchronous, so
+   * a page that checks the cart the instant auth resolves sees an empty cart).
+   * Falls back to the current state after timeoutMs so a denied or offline read
+   * can never hang the caller.
+   * @returns {Promise<{items: object, coupon: ?string}>}
+   */
+  Store.whenCartReady = function (timeoutMs) {
+    if (!this._cartReady) return Promise.resolve(this.cart);
+    return Promise.race([
+      this._cartReady,
+      new Promise((resolve) => setTimeout(() => resolve(this.cart), timeoutMs || 3000))
+    ]);
   };
 
   Store.onWishlistChange = function (cb) {

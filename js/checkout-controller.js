@@ -27,6 +27,9 @@
     let shippingMode = 'standard';
     let currentUser = null;
     let draftId = DRAFT_PREFIX + '-' + Date.now().toString(36).toUpperCase();
+    let renderedCartSignature = null;
+    let cartLoadInFlight = false;
+    let draftRestored = false;
 
     window.VrindaAuth.whenReady(async (user) => {
       currentUser = user;
@@ -40,6 +43,10 @@
       renderGatewayMode();
       wireGiftMessageCounter();
 
+      // /cart/{uid} is read asynchronously, so wait for the first snapshot before
+      // deciding the cart is empty — otherwise a full cart looked empty here and the
+      // whole form (Pay button included) stayed hidden.
+      await Store.whenCartReady(4000);
       await loadCart();
 
       const gate = window.VrindaAuth.canPerformGatedAction('checkout');
@@ -55,6 +62,23 @@
         }
       }
     });
+
+    // The cart can fill up after this page opened (add to cart in another tab, a
+    // guest stash flushed on login, or a quantity change). Re-render whenever the
+    // item set actually changes, so an "empty" checkout recovers by itself.
+    Store.onCartChange(() => {
+      if (!currentUser) return;
+      const signature = cartSignature();
+      if (signature === renderedCartSignature || cartLoadInFlight) return;
+      loadCart();
+    });
+
+    function cartSignature() {
+      return Store.getCartItems()
+        .map((item) => (item.productId || item.id) + 'x' + (parseInt(item.qty, 10) || 1))
+        .sort()
+        .join('|');
+    }
 
     /* ------------------------------------------------------------ selections */
 
@@ -132,9 +156,20 @@
     /* ---------------------------------------------------------- cart loading */
 
     async function loadCart() {
+      if (cartLoadInFlight) return;
+      cartLoadInFlight = true;
+      try {
+        await renderCheckout();
+      } finally {
+        cartLoadInFlight = false;
+      }
+    }
+
+    async function renderCheckout() {
       UI.hide('checkoutLoading');
 
       if (Store.getCartCount() === 0) {
+        renderedCartSignature = '';
         UI.hide(form);
         UI.show('checkoutEmpty', 'block');
         return;
@@ -151,11 +186,16 @@
 
       prefillFromProfile();
       await refreshTotals();
+      renderedCartSignature = cartSignature();
+      UI.hide('checkoutEmpty');
       UI.show(form, 'grid');
 
       // ?resume=1 (or a pending draft) restores the form the customer already filled
       const params = new URLSearchParams(window.location.search);
-      if (params.get('resume') === '1') await restoreDraft();
+      if (!draftRestored && params.get('resume') === '1') {
+        draftRestored = true;
+        await restoreDraft();
+      }
     }
 
     function prefillFromProfile() {
