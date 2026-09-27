@@ -473,11 +473,13 @@
       return { success: false, error: 'Your cart is empty, so there is nothing to order.' };
     }
 
+    const payment = args.payment || {};
+
     const orderId = args.orderId || this.generateOrderId();
     const order = this.buildOrder({
       checkout: args.checkout || {},
       totals: totals,
-      payment: args.payment || {},
+      payment: payment,
       orderId: orderId
     });
 
@@ -512,15 +514,30 @@
       createdAt: this._stamp()
     };
     if (gatewayOrderId) {
-      updates['paymentSessions/' + gatewayOrderId] = {
+      // NOTE: an RTDB multi-path update REPLACES the value at each leaf path, so
+      // this object overwrites the session row wholesale. The FamGateway webhook
+      // may already have written status/utr/transactionId/webhookCaptured here
+      // moments before the customer returned. We deliberately do NOT restate
+      // `status` in this write, because doing so would stamp the misleading
+      // "converted" over a genuine "paid" and erase the webhook's bank proof.
+      // `orderId` below is what marks the session as claimed.
+      const sessionPatch = {
         famgatewayOrderId: gatewayOrderId,
         userId: uid,
         orderId: orderId,
         amount: order.pricing.total,
         payableAmount: order.payment.payableAmount,
-        status: 'converted',
         updatedAt: this._stamp()
       };
+      // Preserve the webhook's capture evidence if it already arrived; otherwise
+      // record that the order was created from a verified gateway confirmation.
+      if (payment.verified) {
+        sessionPatch.status = 'paid';
+        sessionPatch.webhookCaptured = payment.webhookCaptured === true;
+      } else {
+        sessionPatch.status = 'converted';
+      }
+      updates['paymentSessions/' + gatewayOrderId] = sessionPatch;
     }
     // Cart is cleared only after the order record is safely written (single atomic update).
     updates['cart/' + uid] = null;

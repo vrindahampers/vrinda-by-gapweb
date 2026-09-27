@@ -207,6 +207,9 @@
           transactionId: fromWebhook.transactionId || verification.transactionId || '',
           senderName: fromWebhook.senderName || '',
           payableAmount: fromWebhook.payableAmount || returned.amount || 0,
+          // Carried through so the session row keeps the webhook's own evidence
+          // instead of being stamped as merely "converted" when the order is saved.
+          webhookCaptured: fromWebhook.webhookCaptured === true,
           verificationNote: 'Confirmed automatically by the FamGateway webhook.'
         });
         return;
