@@ -117,6 +117,18 @@
       }
     }
 
+    /**
+     * Simulation must never run on a public site. Locally it is a useful rehearsal
+     * tool, but a live site without a merchant key would happily "verify" a payment
+     * that never happened and create a real, marked-paid order — i.e. free orders.
+     * So outside localhost we simply refuse to take an order and say why.
+     */
+    function isLocalHost() {
+      const host = window.location.hostname;
+      return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]' ||
+        host.endsWith('.localhost');
+    }
+
     function renderGatewayMode() {
       const banner = document.getElementById('gatewayModeBanner');
       const note = document.getElementById('payNowNote');
@@ -124,14 +136,29 @@
 
       if (Gateway.isSimulationMode()) {
         banner.style.display = 'block';
-        banner.className = 'mode-banner simulation';
-        banner.innerHTML =
-          '<strong>🧪 Payment simulation mode</strong>' +
-          '<span>FamGateway credentials are not configured yet, so this checkout will simulate a successful ' +
-          'UPI payment and still create a real order in your database. Paste your merchant key into ' +
-          '<code>js/famgateway.js</code> (VRINDA_FAMGATEWAY_CONFIG.apiKey) to go live.</span>' +
-          '<ul>' + Gateway.missingConfig().map((m) => '<li>' + UI.escapeHtml(m) + '</li>').join('') + '</ul>';
-        if (note) note.textContent = 'Simulation mode: no real money moves and no FamGateway page opens.';
+
+        if (isLocalHost()) {
+          banner.className = 'mode-banner simulation';
+          banner.innerHTML =
+            '<strong>🧪 Payment simulation mode (local only)</strong>' +
+            '<span>This is your machine, so the checkout rehearses the full flow without moving money. ' +
+            'For real payments here, run this once in the browser console and reload:</span>' +
+            '<ul>' + Gateway.missingConfig().map((m) => '<li>' + UI.escapeHtml(m) + '</li>').join('') + '</ul>';
+          if (note) note.textContent = 'Local simulation: no real money moves and no FamGateway page opens.';
+        } else {
+          banner.className = 'mode-banner simulation';
+          banner.innerHTML =
+            '<strong>⚠️ Checkout is temporarily unavailable</strong>' +
+            '<span>We are finishing our payment setup and cannot take orders just yet. ' +
+            'Please message us on WhatsApp and we will take your order personally.</span>';
+          if (note) note.textContent = 'Payments are being configured — please contact us on WhatsApp.';
+
+          const payBtn = document.getElementById('payNowBtn');
+          if (payBtn) {
+            payBtn.disabled = true;
+            payBtn.textContent = 'Checkout unavailable';
+          }
+        }
       } else {
         banner.style.display = 'block';
         banner.className = 'mode-banner live';
@@ -322,6 +349,17 @@
       const payBtn = document.getElementById('payNowBtn');
 
       if (window.VrindaAuth && !window.VrindaAuth.requireGate('checkout')) return;
+
+      // Belt and braces: a public site with no merchant key must never create an
+      // order, even if someone bypasses the disabled button.
+      if (Gateway.isSimulationMode() && !isLocalHost()) {
+        UI.setBusy(payBtn, false, null, payLabel);
+        UI.notice('checkoutNotice',
+          '<strong>Checkout is temporarily unavailable.</strong><br>' +
+          'We are finishing our payment setup. Please message us on WhatsApp and we will take your order personally.',
+          'warning');
+        return;
+      }
 
       const checkout = collectCheckout();
       const problems = validate(checkout);
