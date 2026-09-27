@@ -77,10 +77,20 @@
         return;
       }
 
-      // 3. Authoritative server-side verification.
+      // 3. Authoritative verification.
       UI.markSteps('returnSteps', 'verify');
       UI.setStep('verify', 'active');
       const verification = await Gateway.verifyOrder(returned.famgatewayOrderId);
+
+      // "We could not REACH the gateway" is not "the payment failed". FamGateway's
+      // verify-order.php answers 401 to a browser preflight and sends no CORS
+      // headers at all, so in direct mode a captured payment could never be
+      // confirmed - and the customer lost both the order AND the reference. Keep
+      // every reference we have and book the order for manual reconciliation.
+      if (!verification.success && verification.unreachable) {
+        await createOrderUnverified(verification);
+        return;
+      }
 
       if (!verification.success) {
         fail(
@@ -96,6 +106,45 @@
       }
 
       await createOrder(verification);
+    }
+
+    /**
+     * The gateway is unreachable from the browser, so we cannot confirm the capture
+     * here. Try the public status endpoint once (it works whenever CORS allows it),
+     * and either way create the order with every reference attached, flagged for
+     * manual verification. Losing the order is far worse than an unverified one.
+     */
+    async function createOrderUnverified(verification) {
+      UI.setStep('verify', 'active');
+
+      const publicStatus = await Gateway.pollStatusOnce(returned.famgatewayOrderId);
+      if (publicStatus && publicStatus.status === 'success') {
+        await createOrder({
+          success: true,
+          verified: true,
+          orderId: returned.famgatewayOrderId,
+          utr: publicStatus.utr || '',
+          transactionId: publicStatus.transaction_id || '',
+          senderName: publicStatus.sender_name || '',
+          payableAmount: returned.amount || 0,
+          verificationNote: 'Confirmed via the public checkout-status endpoint.'
+        });
+        return;
+      }
+
+      const note = 'The browser could not reach FamGateway to verify this payment (' +
+        (verification.error || 'network/CORS blocked') +
+        '). The order was created so nothing is lost — please confirm against your FamPay dashboard.';
+
+      await createOrder({
+        success: true,
+        verified: false,
+        orderId: returned.famgatewayOrderId,
+        utr: verification.utr || returned.utr || '',
+        transactionId: verification.transactionId || returned.transactionId || '',
+        payableAmount: returned.amount || 0,
+        verificationNote: note
+      }, note);
     }
 
     /* ---------------------------------------------- async settlement polling */
@@ -172,10 +221,13 @@
       return snapshot;
     }
 
-    async function createOrder(verification) {
+    async function createOrder(verification, customerNote) {
       UI.setStep('verify', 'done');
       UI.markSteps('returnSteps', 'order');
-      UI.notice('returnNotice', '<strong>Payment confirmed.</strong> Creating your order now…', 'success');
+      const unverified = verification.verified === false;
+      UI.notice('returnNotice', unverified
+        ? '<strong>Payment reference received.</strong> We are confirming it with our payment provider and saving your order now…'
+        : '<strong>Payment confirmed.</strong> Creating your order now…', 'success');
 
       const draft = await Orders.loadCheckoutDraft();
 
@@ -206,6 +258,26 @@
       }
 
       UI.markSteps('returnSteps', 'order', 'done');
+
+      if (unverified) {
+        // Tell the truth: the order exists, the confirmation is pending.
+        const icon = document.getElementById('returnIcon');
+        if (icon) {
+          icon.className = 'return-icon success';
+          icon.textContent = '⏳';
+        }
+        setHeading('Order saved — payment confirmation pending',
+          'Our team is confirming your payment with the gateway.');
+        UI.notice('returnNotice',
+          '<strong>Your order ' + UI.escapeHtml(result.orderId) + ' is saved.</strong><br>' +
+          UI.escapeHtml(customerNote || 'We are confirming your payment with the provider.') +
+          '<br><br>You will get a confirmation on WhatsApp shortly — nothing further is needed from you.',
+          'info');
+        const actions = document.getElementById('returnActions');
+        if (actions) actions.style.display = 'flex';
+        return;
+      }
+
       succeed(result.orderId);
     }
 

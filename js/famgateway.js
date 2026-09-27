@@ -462,7 +462,37 @@
         verifiedAt: Date.now()
       };
     } catch (err) {
-      return { success: false, verified: false, status: 'network_error', error: err.message };
+      // unreachable: true is the important part. A blocked/failed request means
+      // "we could not ask", NOT "the customer did not pay". FamGateway's
+      // verify-order.php sends no CORS headers, so this is the NORMAL outcome in
+      // direct mode and must never be treated as a failed payment.
+      return { success: false, verified: false, unreachable: true, status: 'network_error', error: err.message || 'Could not reach FamGateway from the browser.' };
+    }
+  };
+
+  /**
+   * One single read of the public checkout-status endpoint (no API key). It is the
+   * only gateway endpoint that can confirm a capture without the Cloud Function
+   * proxy — but FamGateway does not send CORS headers for it either, so callers
+   * must treat a failure as "unknown", never as "not paid".
+   * @returns {Promise<{status: string, utr?: string, transaction_id?: string, sender_name?: string}|null>}
+   */
+  Gateway.pollStatusOnce = async function (famgatewayOrderId) {
+    if (!famgatewayOrderId) return null;
+    try {
+      const url = (cfg.statusPath.indexOf('http') === 0 ? cfg.statusPath : cfg.baseUrl + cfg.statusPath) +
+        '?order_id=' + encodeURIComponent(famgatewayOrderId);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { Accept: 'application/json' }
+      });
+      if (!response.ok) return null;
+      const json = await response.json().catch(() => null);
+      if (!json) return null;
+      return json.data || json;
+    } catch (err) {
+      // CORS/network: we simply cannot know from the browser.
+      return null;
     }
   };
 

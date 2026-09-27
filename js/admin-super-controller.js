@@ -257,6 +257,11 @@
             <strong>${o.orderId}</strong>
             <div style="font-size: 11px; color: var(--color-text-muted);">${formatDate(o.createdAt)}</div>
             <div style="font-size: 11px; margin-top: 2px;">Items: ${(o.items || []).length}</div>
+            ${(o.payment && o.payment.verified === false) ? `
+              <div style="font-size: 11px; margin-top: 4px;">
+                <span class="badge badge-error" title="${escapeText(o.payment.verificationNote || '')}">⚠️ Payment unverified</span>
+                ${o.payment.utr ? `<div style="color: var(--color-text-muted);">UTR: ${o.payment.utr}</div>` : ''}
+              </div>` : ''}
           </td>
           <td>
             <strong>${recipientName(o)}</strong>
@@ -297,11 +302,24 @@
               <button class="btn btn-xs btn-outline js-open-assign-delivery" data-order-id="${o.orderId}">
                 Assign Delivery
               </button>
+              ${(o.payment && o.payment.verified === false) ? `
+                <button class="btn btn-xs btn-glass js-verify-payment" data-order-id="${o.orderId}" style="color: var(--color-primary-dark);">
+                  ✓ Mark Paid
+                </button>` : ''}
             </div>
           </td>
         </tr>
       `;
     }).join('');
+
+    tbody.querySelectorAll('.js-verify-payment').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const orderId = btn.getAttribute('data-order-id');
+        if (!confirm('Mark the payment on order ' + orderId + ' as received?\n\nOnly after confirming it in your FamPay dashboard (UTR / transaction id).')) return;
+        const res = await window.VrindaAdmin.markPaymentVerified(orderId, 'Confirmed manually in the admin portal.');
+        alert(res.success ? 'Payment marked as verified.' : 'Could not update the order: ' + res.error);
+      });
+    });
 
     bindActionButtons(tbody);
   }

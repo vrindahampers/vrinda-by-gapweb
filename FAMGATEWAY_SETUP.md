@@ -1,5 +1,45 @@
 # FamGateway Setup — Going Live with Real UPI Payments
 
+> **⚠️ READ THIS FIRST — a browser can create payments but cannot verify them.**
+>
+> Measured against the live gateway (27 Sep 2026), from `http://127.0.0.1:5500`:
+>
+> | Endpoint | Preflight | CORS header | Callable from a browser? |
+> | --- | --- | --- | --- |
+> | `POST /api/create-order` | 200 | `access-control-allow-origin: *` | ✅ **yes** |
+> | `GET /api/verify-order.php` | **401** | none | ❌ no |
+> | `GET /api/checkout-status.php` | 200 | none | ❌ response unreadable |
+>
+> So in **direct mode** (key in `js/famgateway.js`) checkout works, but no browser
+> can confirm a capture — the return page fails with “Load failed” / “Failed to
+> fetch”. That is a property of the gateway, not of this code.
+>
+> **To go live properly you need the verification proxy** (already written in
+> `functions/index.js`):
+>
+> ```bash
+> firebase functions:secrets:set FAMGATEWAY_API_KEY   # paste: fam_ea93a78892a4fe519445d40a71d24f80e1f792cb
+> firebase deploy --only functions
+> ```
+>
+> Then paste the deployed URLs into `js/famgateway.js`:
+>
+> ```js
+> proxyCreateOrderUrl: 'https://us-central1-<project>.cloudfunctions.net/createFamGatewayOrder',
+> proxyVerifyOrderUrl: 'https://us-central1-<project>.cloudfunctions.net/verifyFamGatewayOrder',
+> webhookUrl:         'https://us-central1-<project>.cloudfunctions.net/famgatewayWebhook',  // optional
+> ```
+>
+> With `proxyVerifyOrderUrl` filled, `Gateway.usesProxy()` turns true and the return
+> page verifies server-side, creating orders with `payment.verified: true`. You can
+> then delete the key from `js/famgateway.js` if you prefer.
+>
+> **Until that is deployed**, payments still work and are never lost: the return
+> page books the order with `payment.verified: false`, the admin table shows a red
+> **“⚠️ Payment unverified”** badge with the UTR, and **✓ Mark Paid** records your
+> manual confirmation from the FamPay dashboard.
+
+
 ## TL;DR — your key in `js/famgateway.js` IS the switch
 
 Your merchant key already sits in `js/famgateway.js`:

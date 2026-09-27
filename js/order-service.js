@@ -428,7 +428,13 @@
         senderName: payment.senderName || '',
         payableAmount: payment.payableAmount || null,
         paymentTime: payment.paymentTime || '',
-        verifiedAt: payment.verifiedAt || Date.now(),
+        verifiedAt: payment.verified ? (payment.verifiedAt || Date.now()) : null,
+        // False when we could not reach the gateway from the browser (FamGateway's
+        // verify endpoint sends no CORS headers, so only a Cloud Function proxy can
+        // confirm it). The order still exists and carries every reference we have,
+        // so the team can reconcile it instead of the money vanishing.
+        verified: payment.verified !== false,
+        verificationNote: payment.verificationNote || '',
         simulated: !!payment.simulated
       },
       statusHistory: [

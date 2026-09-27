@@ -338,6 +338,25 @@
       }
     },
 
+    // Manual payment reconciliation: confirm a capture against the FamPay
+    // dashboard. Needed because FamGateway's verify endpoint cannot be called
+    // from a browser (no CORS), so some orders land with verified:false.
+    markPaymentVerified: async function (orderId, note) {
+      const db = this._db();
+      if (!db || !orderId) return { success: false, error: 'Missing order id' };
+      try {
+        const updates = {};
+        updates['orders/' + orderId + '/payment/verified'] = true;
+        updates['orders/' + orderId + '/payment/verifiedAt'] = this._stamp();
+        updates['orders/' + orderId + '/payment/verifiedManually'] = true;
+        if (note) updates['orders/' + orderId + '/payment/verificationNote'] = note;
+        await db.ref().update(updates);
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+
     /* --------------------------------------------------------- ANALYTICS & STATS */
 
     computeStats: function (orders, users, reviews) {
