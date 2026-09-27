@@ -1,0 +1,70 @@
+name: Deploy to GitHub Pages
+
+# Publishes the static site to https://<user>.github.io/<repo>/ every time main
+# changes. The site is fully relative (no absolute paths), so no build step and no
+# base-path rewriting is needed.
+#
+# ⚠️ SECRET GUARD: js/famgateway.js must NOT contain a live merchant key when this
+# workflow runs. A public GitHub repo is world-readable, and that key can create
+# and query real FamGateway orders on the owner's account. Move it to Secret
+# Manager (see GITHUB_HOSTING.md) and fill the proxy URLs instead.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  guard-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Refuse to publish a live merchant key to a public repository.
+      - name: Block a leaked FamGateway merchant key
+        run: |
+          if grep -qE "apiKey: *'fam_[a-z0-9]+'" js/famgateway.js; then
+            echo "::error::js/famgateway.js contains a live FamGateway merchant key."
+            echo "Publishing would expose it to the whole internet. Fix it first:"
+            echo "  1) firebase functions:secrets:set FAMGATEWAY_API_KEY=<your key>"
+            echo "  2) firebase deploy --only functions"
+            echo "  3) fill proxyCreateOrderUrl + proxyVerifyOrderUrl in js/famgateway.js"
+            echo "  4) set apiKey: '' in js/famgateway.js and push again"
+            echo "See GITHUB_HOSTING.md."
+            exit 1
+          fi
+          echo "No merchant key in the published files. Continuing."
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+          # functions/ is server-side code; it must never be served as a static file.
+          exclude: |
+            functions/**
+            .github/**
+            .git/**
+            node_modules/**
+            *.log
+            README.md
+            FIREBASE_SETUP.md
+            FAMGATEWAY_SETUP.md
+            ROUTING_AND_SEO.md
+            GITHUB_HOSTING.md
+            database.rules.json
+            firebase.json
+            .firebaserc
+      - id: deployment
+        uses: actions/deploy-pages@v4
