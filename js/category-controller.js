@@ -11,14 +11,14 @@
   let allProducts = [];
   let allCategories = [];
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     currentCategory = urlParams.get('slug') || 'all';
 
-    if (window.VrindaCatalog) {
-      allCategories = await window.VrindaCatalog.getCategories();
-      allProducts = await window.VrindaCatalog.getProducts();
-    } else if (window.VRINDA_DATA) {
+    // 1) Paint immediately from the bundled catalog — zero network wait.
+    //    This is what makes ?slug=all feel instant instead of blocking on
+    //    two sequential Firebase RTDB round-trips.
+    if (window.VRINDA_DATA) {
       allCategories = window.VRINDA_DATA.categories || [];
       allProducts = window.VRINDA_DATA.products || [];
     }
@@ -27,7 +27,34 @@
     updateCategoryHeader();
     setupEventListeners();
     applyFiltersAndRender();
+
+    // 2) Re-paint in the background once the live Firebase catalog arrives.
+    hydrateFromFirebase();
   });
+
+  async function hydrateFromFirebase() {
+    if (!window.VrindaCatalog ||
+        typeof window.VrindaCatalog.getCategories !== 'function' ||
+        typeof window.VrindaCatalog.getProducts !== 'function') {
+      return;
+    }
+
+    try {
+      const [cats, prods] = await Promise.all([
+        window.VrindaCatalog.getCategories(),
+        window.VrindaCatalog.getProducts()
+      ]);
+
+      if (cats && cats.length) allCategories = cats;
+      if (prods && prods.length) allProducts = prods;
+
+      renderCategoryChips();
+      updateCategoryHeader();
+      applyFiltersAndRender();
+    } catch (err) {
+      console.warn('Live catalog refresh skipped; showing bundled catalog.', err && err.message);
+    }
+  }
 
   function renderCategoryChips() {
     const chipsContainer = document.getElementById('categoryFilterChips');
@@ -158,6 +185,14 @@
 
       const productSlug = p.slug || p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       const productUrl = `../product/?id=${p.id}&slug=${productSlug}`;
+      const attrs = `data-product-id="${p.id}"` +
+        ` data-name="${p.name}"` +
+        ` data-slug="${productSlug}"` +
+        ` data-price="${p.price}"` +
+        ` data-mrp="${p.originalPrice || p.price}"` +
+        ` data-image="${p.image || ''}"` +
+        ` data-category="${p.category || ''}"` +
+        ` data-category-name="${p.categoryName || p.category || ''}"`;
 
       return `
         <article class="product-card">
@@ -165,7 +200,7 @@
             <div class="product-badges">
               ${p.badge ? `<span class="badge ${badgeClass}">${p.badge}</span>` : ''}
             </div>
-            <button class="wishlist-btn auth-gate-trigger" data-gated="wishlist" aria-label="Add to wishlist" title="Save to wishlist">
+            <button type="button" class="wishlist-btn js-toggle-wishlist" ${attrs} aria-label="Add to wishlist" title="Save to wishlist">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
               </svg>
@@ -188,7 +223,10 @@
               ${p.originalPrice ? `<span class="product-original-price">₹${p.originalPrice.toLocaleString('en-IN')}</span>` : ''}
             </div>
             <div class="product-actions">
-              <a href="${productUrl}" class="btn btn-primary btn-sm" style="flex: 1;">
+              <button type="button" class="btn btn-primary btn-sm js-add-to-cart" ${attrs} style="flex: 1;">
+                Add to Cart
+              </button>
+              <a href="${productUrl}" class="btn btn-secondary btn-sm" style="flex: 1;">
                 View Details
               </a>
               <a href="https://wa.me/919876543210?text=Hi%20vrindahampers!%20I'm%20interested%20in%20customizing:%20${encodeURIComponent(p.name)}" 
@@ -200,6 +238,11 @@
         </article>
       `;
     }).join('');
+
+    // Reflect wishlist heart states on the freshly rendered cards.
+    if (window.VrindaStore && typeof window.VrindaStore.syncWishlistButtons === 'function') {
+      window.VrindaStore.syncWishlistButtons();
+    }
   }
 })();
 

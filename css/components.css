@@ -272,6 +272,7 @@
 
 .product-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: var(--space-sm);
 }
@@ -831,6 +832,13 @@
 .category-card:hover {
   transform: translateY(-6px);
   box-shadow: var(--shadow-xl);
+}
+
+/* Category cards render as links so tapping one opens the filtered catalog. */
+a.category-card {
+  text-decoration: none;
+  color: #ffffff;
+  cursor: pointer;
 }
 
 .category-bg {

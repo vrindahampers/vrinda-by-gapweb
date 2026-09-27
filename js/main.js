@@ -21,13 +21,41 @@
     renderInstagramGallery();
     renderFAQ();
     initNewsletterForm();
+
+    // Reflect wishlist heart states on the freshly rendered product cards.
+    if (window.VrindaStore && typeof window.VrindaStore.syncWishlistButtons === 'function') {
+      window.VrindaStore.syncWishlistButtons();
+    }
   });
+
+  // Helper to build the product detail URL for a homepage card
+  function productUrlFor(p) {
+    const slug = p.slug || String(p.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    return `./product/?id=${encodeURIComponent(p.id)}&slug=${encodeURIComponent(slug)}`;
+  }
+
+  // Helper to build the data-* payload used by the delegated Store handlers
+  // (js-add-to-cart / js-toggle-wishlist) so cart & wishlist work without a
+  // network lookup — the buttons carry the full product line themselves.
+  function productDataAttrs(p) {
+    const slug = p.slug || String(p.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    return `data-product-id="${p.id}"` +
+      ` data-name="${p.name}"` +
+      ` data-slug="${slug}"` +
+      ` data-price="${p.price}"` +
+      ` data-mrp="${p.originalPrice || p.price}"` +
+      ` data-image="${p.image || ''}"` +
+      ` data-category="${p.category || ''}"` +
+      ` data-category-name="${p.categoryName || p.category || ''}"`;
+  }
 
   // Helper to create product card HTML
   function createProductCardHTML(p) {
     const badgeClass = p.badge && p.badge.toLowerCase().includes('best') 
       ? 'badge-bestseller' 
       : (p.badge && p.badge.toLowerCase().includes('new') ? 'badge-new' : 'badge-primary');
+    const productUrl = productUrlFor(p);
+    const attrs = productDataAttrs(p);
 
     return `
       <article class="product-card">
@@ -35,16 +63,18 @@
           <div class="product-badges">
             ${p.badge ? `<span class="badge ${badgeClass}">${p.badge}</span>` : ''}
           </div>
-          <button class="wishlist-btn auth-gate-trigger" data-gated="wishlist" aria-label="Add to wishlist" title="Save to wishlist">
+          <button type="button" class="wishlist-btn js-toggle-wishlist" ${attrs} aria-label="Add to wishlist" title="Save to wishlist">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
             </svg>
           </button>
-          <img src="${p.image}" alt="${p.name}" class="product-img" loading="lazy" width="400" height="432">
+          <a href="${productUrl}" aria-label="View ${p.name}">
+            <img src="${p.image}" alt="${p.name}" class="product-img" loading="lazy" width="400" height="432">
+          </a>
         </div>
         <div class="product-content">
           <div class="product-category">${p.categoryName}</div>
-          <h3 class="product-title" title="${p.name}">${p.name}</h3>
+          <h3 class="product-title" title="${p.name}"><a href="${productUrl}" style="color: inherit; text-decoration: none;">${p.name}</a></h3>
           <div class="product-rating">
             <span class="rating-stars">★★★★★</span>
             <span>${p.rating} (${p.reviewCount})</span>
@@ -54,7 +84,7 @@
             ${p.originalPrice ? `<span class="product-original-price">₹${p.originalPrice.toLocaleString('en-IN')}</span>` : ''}
           </div>
           <div class="product-actions">
-            <button class="btn btn-primary btn-sm auth-gate-trigger" data-gated="cart" style="flex: 1;">
+            <button type="button" class="btn btn-primary btn-sm js-add-to-cart" ${attrs} style="flex: 1;">
               Add to Cart
             </button>
             <a href="https://wa.me/919876543210?text=Hi%20vrindahampers!%20I'm%20interested%20in:%20${encodeURIComponent(p.name)}" 
@@ -116,18 +146,19 @@
     if (!container) return;
 
     container.innerHTML = window.VRINDA_DATA.categories.map(cat => `
-      <div class="category-card" style="cursor: pointer;">
+      <a class="category-card" href="./category/?slug=${encodeURIComponent(cat.slug || cat.id)}"
+         aria-label="Browse ${cat.name}" title="Browse ${cat.name}">
         <img src="${cat.image}" alt="${cat.name}" class="category-bg" loading="lazy">
         <div class="category-overlay"></div>
         <div class="category-info">
           <span class="category-count">${cat.count}</span>
           <h3 class="category-title">${cat.name}</h3>
           <p style="font-size: 13px; opacity: 0.9; margin-bottom: 12px; line-height: 1.4;">${cat.description}</p>
-          <a href="#personalized" class="btn btn-glass btn-sm" style="color: #fff; border-color: rgba(255,255,255,0.4);">
+          <span class="btn btn-glass btn-sm" style="color: #fff; border-color: rgba(255,255,255,0.4);">
             Browse Category &rarr;
-          </a>
+          </span>
         </div>
-      </div>
+      </a>
     `).join('');
   }
 
