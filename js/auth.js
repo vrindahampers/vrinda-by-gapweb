@@ -266,7 +266,13 @@
       }
 
       if (!opts.silent) {
-        alert(`Access Denied:\n\nYour account role (${role.toUpperCase()}) does not have permission to view this section.`);
+        const required = rolesArray.map((r) => r.toUpperCase()).join(' or ');
+        alert(
+          `Access Denied:\n\nYour account role (${role.toUpperCase()}) does not have permission to view this section.\n\n` +
+          `Required role: ${required}.\n` +
+          `To fix this, ask your Super Admin to promote you under Admin → Staff & Roles, ` +
+          `or set users/${this.currentUser.uid}/role in the Firebase Console (then sign out and back in).`
+        );
         window.location.href = opts.homePath || '../index.html';
       }
       return false;

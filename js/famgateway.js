@@ -34,7 +34,7 @@
    * Any value left as a placeholder keeps the adapter in simulation mode.
    */
   window.VRINDA_FAMGATEWAY_CONFIG = {
-    mode: 'test',                                // 'test' | 'live' (label stored on the order)
+    mode: 'live',                                // 'test' | 'live' (label stored on the order)
 
     /* --- FamGateway public endpoints (already correct, no change needed) --- */
     baseUrl: 'https://famgateway.in',
@@ -45,9 +45,11 @@
     qrImagePath: '/api/qr-image.php',
     receiptPath: '/transaction-details.php',
 
-    /* --- TODO: your FamGateway credentials (server-side only!) --- */
-    apiKey: 'fam_ea93a78892a4fe519445d40a71d24f80e1f792cb',                                  // TODO: fg_live_xxxxxxxx (put in Cloud Function env, NOT here)
-    merchantUpiId: '',                           // TODO: your FamPay UPI id, e.g. yourname@fam
+    /* --- FamGateway merchant API key: NOT kept in client code anymore. ---
+       Set it as a Cloud Function secret instead:
+       firebase functions:secrets:set FAMGATEWAY_API_KEY   (see FAMGATEWAY_SETUP.md) */
+    apiKey: '',                                   // intentionally empty — server-side secret only
+    merchantUpiId: 'ishikavh@fam',                           // your FamPay UPI id, e.g. yourname@fam
     merchantName: 'vrindahampers',
 
     /* --- TODO: deployed Cloud Function proxy URLs (see /functions/index.js) --- */
@@ -104,7 +106,6 @@
     if (!state.proxyCreateOrder) missing.push('proxyCreateOrderUrl (Cloud Function createFamGatewayOrder in /functions)');
     if (!state.proxyVerifyOrder) missing.push('proxyVerifyOrderUrl (Cloud Function verifyFamGatewayOrder in /functions)');
     if (!state.webhook) missing.push('webhookUrl (FamGateway -> famgatewayWebhook, for instant capture)');
-    if (!state.apiKeyPresent) missing.push('apiKey (FamGateway merchant key — server-side env var only)');
     return missing;
   };
 

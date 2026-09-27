@@ -1,0 +1,14 @@
+{
+  "name": "vrindahampers-functions",
+  "version": "1.0.0",
+  "description": "Secure FamGateway proxies + webhook for vrindahampers",
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "private": true,
+  "dependencies": {
+    "firebase-admin": "^12.1.0",
+    "firebase-functions": "^5.0.1"
+  }
+}

@@ -141,7 +141,7 @@
         <span class="section-tag">Custom Studio</span>
         <h1 style="font-size: clamp(2rem, 4vw, 3rem); margin-top: 6px; margin-bottom: 12px;">Design Your Own <span id="cfTypeHeadline">Bouquet</span></h1>
 
-      <div class="configurator-grid">
+      <div class="configurator-grid" id="cfBuilderGrid">
         <!-- Builder Column -->
         <div class="config-card">
           <div class="config-step">
@@ -200,6 +200,7 @@
             <span id="cfTotalPrice" style="font-size: 1.6rem; font-weight: 700; color: var(--color-primary);">₹0</span>
           </div>
 
+          <div id="cfSubmitError" style="display: none; font-size: 12px; line-height: 1.5; color: var(--color-error); background: rgba(214, 69, 69, 0.08); border: 1px solid rgba(214, 69, 69, 0.35); border-radius: var(--radius-xl); padding: 10px 12px; margin-bottom: 10px;"></div>
           <button id="cfSubmitBtn" class="btn btn-primary btn-lg" style="width: 100%; margin-bottom: 10px;">
             Submit My Design
           </button>
@@ -213,6 +214,30 @@
             <li>✅ Same-day delivery in select metros via Porter/Rapido.</li>
           </ul>
         </aside>
+      </div>
+
+      <!-- Post-submission confirmation (shown after a successful design submission) -->
+      <div class="config-card" id="cfSuccessPanel" role="status" aria-live="polite" style="display: none; max-width: 620px; margin: 0 auto; text-align: center;">
+        <div style="width: 68px; height: 68px; border-radius: 50%; background: var(--color-primary-soft); display: flex; align-items: center; justify-content: center; font-size: 1.9rem; margin: 0 auto 14px;">✅</div>
+        <h2 style="font-family: var(--font-serif); font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: 8px;">Design received!</h2>
+        <p style="color: var(--color-text-body); font-size: var(--font-size-sm); line-height: 1.65; margin-bottom: 1.35rem;">
+          Our concierge will review your customization and reach out on WhatsApp within a few hours.
+        </p>
+
+        <div id="cfSuccessRecap" style="text-align: left; background: var(--color-bg-surface); border: 1px dashed var(--color-border-light); border-radius: var(--radius-xl); padding: 14px 16px; margin-bottom: 1.35rem;"></div>
+
+        <a id="cfSuccessWhatsAppBtn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp btn-lg" style="width: 100%; margin-bottom: 10px;">
+          📸 Continue on WhatsApp
+        </a>
+        <button id="cfSuccessRestartBtn" class="btn btn-outline btn-lg" style="width: 100%;">
+          Design another gift
+        </button>
+
+        <ul style="list-style: none; padding: 0; margin: 1.5rem 0 0; display: grid; gap: 10px; font-size: 12.5px; text-align: left; color: var(--color-text-body);">
+          <li>1️⃣ We review your design and confirm the final quote on WhatsApp.</li>
+          <li>2️⃣ You approve a free digital mockup before anything is crafted.</li>
+          <li>3️⃣ Payment only after approval · same-day delivery in select metros.</li>
+        </ul>
       </div>
 
         <p class="text-lead" id="cfTypeDescription" style="font-size: 1.05rem;">

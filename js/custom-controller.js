@@ -110,6 +110,7 @@
 
   let currentType = 'bouquet';
   let selection = { base: null, palette: null, addons: [] };
+  let submitting = false;
 
   document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -286,21 +287,33 @@
     if (totalEl) totalEl.textContent = `₹${data.estimatedTotal.toLocaleString('en-IN')}`;
 
     if (waBtn) {
-      const message = [
-        `Hi vrindahampers! I built a custom ${data.typeLabel} on your Custom Studio:`,
-        `• Occasion: ${data.occasion}`,
-        data.recipient ? `• Personalized for: ${data.recipient}` : null,
-        `• Base design: ${data.baseLabel}`,
-        `• Palette: ${data.palette}`,
-        `• Add-ons: ${data.addons.length ? data.addons.join(', ') : 'None'}`,
-        data.note ? `• Note: "${data.note}"` : null,
-        `• Estimated total: ₹${data.estimatedTotal.toLocaleString('en-IN')}`,
-        '',
-        'Please share the mockup and confirm my quote.'
-      ].filter(Boolean).join('\n');
-
-      waBtn.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+      waBtn.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildWhatsAppMessage(data))}`;
     }
+  }
+
+  /**
+   * Shared WhatsApp handoff message — used by the sticky "Confirm on WhatsApp"
+   * button and by the post-submission confirmation panel.
+   */
+  function buildWhatsAppMessage(data) {
+    return [
+      `Hi vrindahampers! I built a custom ${data.typeLabel} on your Custom Studio:`,
+      `• Occasion: ${data.occasion}`,
+      data.recipient ? `• Personalized for: ${data.recipient}` : null,
+      `• Base design: ${data.baseLabel}`,
+      `• Palette: ${data.palette}`,
+      `• Add-ons: ${data.addons.length ? data.addons.join(', ') : 'None'}`,
+      data.note ? `• Note: "${data.note}"` : null,
+      `• Estimated total: ₹${data.estimatedTotal.toLocaleString('en-IN')}`,
+      '',
+      'Please share the mockup and confirm my quote.'
+    ].filter(Boolean).join('\n');
+  }
+
+  function escapeHtml(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, (ch) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+    ));
   }
 
   function setupListeners() {
@@ -311,10 +324,57 @@
     });
 
     document.getElementById('cfSubmitBtn')?.addEventListener('click', submitDesign);
+    document.getElementById('cfSuccessRestartBtn')?.addEventListener('click', () => {
+      window.location.reload();
+    });
     updateSummary();
   }
 
+  /**
+   * Replaces the builder with a confirmation card once the design is safely
+   * stored — no browser alert, no filled form left behind, no double-submit.
+   */
+  function showSuccessPanel(data) {
+    const builder = document.getElementById('cfBuilderGrid');
+    const desc = document.getElementById('cfTypeDescription');
+    const chips = document.getElementById('cfTypeChips');
+    const panel = document.getElementById('cfSuccessPanel');
+    const recap = document.getElementById('cfSuccessRecap');
+    const waBtn = document.getElementById('cfSuccessWhatsAppBtn');
+
+    if (builder) builder.style.display = 'none';
+    if (desc) desc.style.display = 'none';
+    if (chips) chips.style.display = 'none';
+
+    if (recap) {
+      recap.innerHTML = `
+        <div class="summary-line"><span>Gift Type</span><strong>${escapeHtml(data.typeLabel)}</strong></div>
+        <div class="summary-line"><span>Occasion</span><strong>${escapeHtml(data.occasion)}</strong></div>
+        ${data.recipient ? `<div class="summary-line"><span>Personalized For</span><strong>${escapeHtml(data.recipient)}</strong></div>` : ''}
+        <div class="summary-line"><span>Base Design</span><strong>${escapeHtml(data.baseLabel)}</strong></div>
+        <div class="summary-line"><span>Palette</span><strong>${escapeHtml(data.palette)}</strong></div>
+        <div class="summary-line"><span>Add-Ons</span><strong>${escapeHtml(data.addons.length ? data.addons.join(', ') : 'None')}</strong></div>
+        <div class="summary-line" style="border-bottom: 0; padding-top: 10px;">
+          <span style="font-weight: 600; color: var(--color-text-muted);">Estimated Total</span>
+          <strong style="font-size: 1.15rem; color: var(--color-primary);">₹${data.estimatedTotal.toLocaleString('en-IN')}</strong>
+        </div>
+      `;
+    }
+
+    if (waBtn) {
+      waBtn.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildWhatsAppMessage(data))}`;
+    }
+
+    if (panel) {
+      panel.style.display = 'block';
+      if (typeof panel.scrollIntoView === 'function') {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }
+
   async function submitDesign() {
+    if (submitting) return;
     const data = buildSummaryData();
 
     if (window.VrindaAuth) {
@@ -335,6 +395,18 @@
       return;
     }
 
+    const submitBtn = document.getElementById('cfSubmitBtn');
+    const errorBox = document.getElementById('cfSubmitError');
+    submitting = true;
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending your design…';
+    }
+    if (errorBox) {
+      errorBox.style.display = 'none';
+      errorBox.textContent = '';
+    }
+
     try {
       const uid = window.VrindaAuth.currentUser.uid;
       await firebase.database().ref('customRequests/' + uid).push({
@@ -342,9 +414,21 @@
         status: 'pending-review',
         createdAt: firebase.database.ServerValue.TIMESTAMP
       });
-      alert('Design received! 🎉 Our concierge will review your customization and reach out on WhatsApp within a few hours.');
+      showSuccessPanel(data);
     } catch (err) {
-      alert(`vrindahampers Notice:\n\nWe could not save your design (${err.message}). Please confirm on WhatsApp instead.`);
+      const message = `We could not save your design (${err.message}). Please try again, or tap "Confirm on WhatsApp" to send it straight to our concierge.`;
+      if (errorBox) {
+        errorBox.textContent = message;
+        errorBox.style.display = 'block';
+      } else {
+        alert(`vrindahampers Notice:\n\n${message}`);
+      }
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit My Design';
+      }
+    } finally {
+      submitting = false;
     }
   }
 })();
