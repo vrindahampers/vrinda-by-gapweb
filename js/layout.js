@@ -195,8 +195,76 @@
       `;
     }
 
+    // Apply admin-managed settings/SEO that may have arrived before the chrome existed.
+    if (window.VrindaStore) {
+      applyStoreChrome(window.VrindaStore.config());
+      applyHomeSeo(window.VrindaStore.seo());
+    }
+
     attachLayoutEvents(basePath);
   }
+
+  // Header search runs against the admin-managed Firebase catalog. The bundled
+  // sample is used only until the live /products read lands (or if it fails).
+  let searchProductsCache = null;
+  let searchCatalogRequested = false;
+
+  function searchCatalog() {
+    if (searchProductsCache) return searchProductsCache;
+    searchProductsCache = (window.VRINDA_DATA && window.VRINDA_DATA.products) || [];
+
+    if (!searchCatalogRequested && window.VrindaCatalog && typeof window.VrindaCatalog.getProducts === 'function') {
+      searchCatalogRequested = true;
+      window.VrindaCatalog.getProducts().then((products) => {
+        if (Array.isArray(products) && products.length) searchProductsCache = products;
+      }).catch(() => { /* keep the bundled sample */ });
+    }
+    return searchProductsCache;
+  }
+
+  /**
+   * Push admin-managed store settings (free-delivery threshold, WhatsApp
+   * number) into the injected chrome: announcement bar + every wa.me link.
+   * Driven live by the "vrinda:settings-changed" event from VrindaStore.
+   */
+  function applyStoreChrome(cfg) {
+    if (!cfg) return;
+
+    if (cfg.freeShippingThreshold != null && !Number.isNaN(Number(cfg.freeShippingThreshold))) {
+      const bar = document.querySelector('.announcement-bar');
+      if (bar) {
+        const threshold = Number(cfg.freeShippingThreshold).toLocaleString('en-IN');
+        bar.innerHTML = 'Handcrafted with endless love 🌸 Free standard delivery on orders above ₹' +
+          threshold + '! <a href="#personalized">Explore Custom Gifts</a>';
+      }
+    }
+
+    if (cfg.whatsappNumber && /[0-9]/.test(String(cfg.whatsappNumber))) {
+      document.querySelectorAll('a[href*="wa.me/"]').forEach((a) => {
+        const href = a.getAttribute('href');
+        if (href) a.setAttribute('href', href.replace(/wa\.me\/\d+/, 'wa.me/' + cfg.whatsappNumber));
+      });
+    }
+  }
+
+  /**
+   * Apply the admin-managed default SEO meta tags — homepage only (marked by
+   * .hero-section) so per-page titles elsewhere stay untouched.
+   */
+  function applyHomeSeo(seo) {
+    if (!seo) return;
+    if (!document.querySelector('.hero-section')) return;
+
+    if (seo.title) document.title = seo.title;
+    if (seo.description) {
+      const meta = document.querySelector('meta[name="description"]');
+      if (meta) meta.setAttribute('content', seo.description);
+    }
+  }
+
+  // Live re-apply whenever the Super Admin saves Store Settings & SEO.
+  document.addEventListener('vrinda:settings-changed', (e) => applyStoreChrome(e.detail));
+  document.addEventListener('vrinda:seo-changed', (e) => applyHomeSeo(e.detail));
 
   function attachLayoutEvents(basePath) {
     // Header scroll background effect
@@ -263,14 +331,15 @@
 
     searchInputField?.addEventListener('input', (e) => {
       const query = e.target.value.trim().toLowerCase();
-      if (!query || !window.VRINDA_DATA?.products) {
+      const pool = searchCatalog();
+      if (!query || !pool.length) {
         searchResults.innerHTML = `<p style="font-size: 13px; color: var(--color-text-light); text-align: center; padding: 1rem 0;">Type to search vrindahampers...</p>`;
         return;
       }
-      const matched = window.VRINDA_DATA.products.filter(p => 
-        p.name.toLowerCase().includes(query) || 
-        p.categoryName.toLowerCase().includes(query) ||
-        p.description.toLowerCase().includes(query)
+      const matched = pool.filter(p =>
+        (p.name || '').toLowerCase().includes(query) ||
+        (p.categoryName || p.category || '').toLowerCase().includes(query) ||
+        (p.description || '').toLowerCase().includes(query)
       );
 
       if (matched.length === 0) {

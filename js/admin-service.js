@@ -20,8 +20,11 @@
 
     /* ------------------------------------------------------------- USERS & ROLES */
 
-    // Listen to all users
-    listenToUsers: function (callback) {
+    // Listen to all users. The super-admin RBAC table reads the WHOLE /users
+    // node, so the database rules must grant a parent-level read to ops roles
+    // (see users.".read" in database.rules.json). onError keeps the UI from
+    // sitting on "Loading team members..." forever when access is denied.
+    listenToUsers: function (callback, onError) {
       const db = this._db();
       if (!db || typeof callback !== 'function') return () => {};
       const ref = db.ref('users');
@@ -30,7 +33,11 @@
         const users = Object.keys(val).map(uid => Object.assign({ uid: uid }, val[uid]));
         callback(users);
       };
-      ref.on('value', handler);
+      const errHandler = (err) => {
+        console.warn('listenToUsers error:', err && err.message);
+        if (typeof onError === 'function') onError(err);
+      };
+      ref.on('value', handler, errHandler);
       return () => ref.off('value', handler);
     },
 

@@ -116,6 +116,50 @@ To assign an Admin or Staff or Delivery Manager:
 > Remember to **re-deploy `database.rules.json`** after changing rules — the portals will show
 > `PERMISSION_DENIED` until the new role nodes exist in your Firebase project.
 
+### Role resolution in the rules (important)
+
+`database.rules.json` now accepts **either** source of truth for an operations role, so a
+profile that says `"superadmin"` is enough on its own:
+
+1. the legacy registry nodes — `admins/$uid`, `staff/$uid`, `deliveryManagers/$uid`, or
+2. the profile field — `users/$uid/role` (`"superadmin" | "staff" | "delivery"`).
+
+Source 2 is what the app reads (`VrindaAuth.getUserRole`, `requireAdminRole`) and what the
+Admin → Staff & Roles table displays. Previously the two could disagree: a user whose profile
+said `superadmin` but who had no `admins/$uid` row passed the UI gate and then got
+`PERMISSION_DENIED` on **every** write (products, categories, coupons, settings, seo, banners,
+blogs, role changes) — which is what used to leave the Catalog and Team tabs stuck on
+"Loading ...". `VrindaAdmin.updateUserRole` keeps both sources in sync from now on.
+
+**Publish the rules, then reload the portal:**
+
+```bash
+firebase deploy --only database
+```
+
+Two more one-time notes for a brand-new project:
+
+- The first Super Admin still has to be bootstrapped in the Firebase console
+  (`users/<uid>/role = "superadmin"`), because no client is allowed to write its own role.
+- If `/products` and `/categories` are empty, open **Admin → Product Catalog** and press
+  **⬇ Import sample catalog** (or just load any page while signed in as Super Admin — the
+  seeder then fills the empty nodes from `assets/data/sample-data.js`). It never overwrites
+  rows that already exist, so it is safe to re-run. After that the storefront reads products
+  from Firebase; the JSON file is only an offline safety net.
+
+### What the Super Admin portal writes where
+
+| Portal action | RTDB node | Read by the storefront as |
+| --- | --- | --- |
+| Product Catalog (add/edit/delete) | `products/$id`, `categories/$id` | every product grid, product page, search, cart |
+| Promotional Coupons (create/edit/delete) | `coupons/$CODE` | cart + checkout discount, free-delivery rules |
+| Team & Roles (promote/reassign) | `users/$uid/role` + `admins` / `staff` / `deliveryManagers` | portal access everywhere |
+| Store Settings (contact, thresholds) | `settings` | free-delivery threshold, shipping fee, cart totals, announcement bar, WhatsApp links |
+| SEO meta tags | `seo` | homepage `<title>` + `<meta name="description">` |
+
+Saving Store Settings reports the real outcome — a denied write now says so (and points at
+`firebase deploy --only database`) instead of claiming success.
+
 ---
 
 ## 6. Realtime Database Node Map

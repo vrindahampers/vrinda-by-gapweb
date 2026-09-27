@@ -43,11 +43,20 @@
     _wishlistListeners: [],
     _hasOrdersCache: null,
     _catalogCache: null,
+    // Live overrides pushed from the admin-managed /settings + /seo RTDB nodes.
+    _rtdbConfig: {},
+    _seo: {},
 
     /* ------------------------------------------------------------------ utils */
 
     config: function () {
-      return (window.VRINDA_DATA && window.VRINDA_DATA.commerceConfig) || DEFAULT_CONFIG;
+      const base = (window.VRINDA_DATA && window.VRINDA_DATA.commerceConfig) || {};
+      // Defaults < local sample config < admin-managed /settings node.
+      return Object.assign({}, DEFAULT_CONFIG, base, this._rtdbConfig);
+    },
+
+    seo: function () {
+      return this._seo || {};
     },
 
     money: function (value) {
@@ -77,6 +86,7 @@
     this.ready = true;
 
     this.bindDelegatedActions();
+    this.loadStoreSettings();
 
     const auth = window.VrindaAuth;
     if (auth && typeof auth.onAuthChange === 'function') {
@@ -844,6 +854,43 @@
         this.moveWishlistToCart(moveBtn.getAttribute('data-product-id'));
       }
     });
+  };
+
+  /**
+   * Live subscription to the admin-managed /settings and /seo RTDB nodes.
+   * Anything the Super Admin saves in "Store Settings & SEO" (free-delivery
+   * threshold, shipping fee, WhatsApp number, support email, meta tags) is
+   * merged into config() and announced so chrome (announcement bar, WhatsApp
+   * links, homepage SEO) can re-apply itself.
+   */
+  Store.loadStoreSettings = function () {
+    const db = this._db();
+    if (!db) return;
+
+    const settingsHandler = (snap) => {
+      const s = snap.val() || {};
+      const next = {};
+      const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+
+      if (s.whatsapp) next.whatsappNumber = String(s.whatsapp).replace(/[^0-9]/g, '');
+      if (s.email) next.supportEmail = String(s.email);
+      const threshold = num(s.freeShippingThreshold);
+      if (threshold !== null && !Number.isNaN(threshold) && threshold >= 0) next.freeShippingThreshold = threshold;
+      const fee = num(s.shippingFee);
+      if (fee !== null && !Number.isNaN(fee) && fee >= 0) next.standardShippingFee = fee;
+
+      this._rtdbConfig = next;
+      document.dispatchEvent(new CustomEvent('vrinda:settings-changed', { detail: this.config() }));
+    };
+
+    const seoHandler = (snap) => {
+      this._seo = snap.val() || {};
+      document.dispatchEvent(new CustomEvent('vrinda:seo-changed', { detail: this._seo }));
+    };
+
+    const onErr = (err) => console.warn('Store settings sync warning:', err && err.message);
+    db.ref('settings').on('value', settingsHandler, onErr);
+    db.ref('seo').on('value', seoHandler, onErr);
   };
 
   window.VrindaStore = Store;

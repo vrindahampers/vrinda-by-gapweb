@@ -14,6 +14,8 @@
   let allCoupons = [];
   let allCancellations = [];
   let activeChecklistOrderId = null;
+  let staffLoadError = null;
+  let editingCouponCode = null;
 
   async function initSuperAdmin() {
     if (!window.VrindaAuth) return;
@@ -78,10 +80,15 @@
       renderCancellationsTable();
     });
 
-    // 3. Users listener
+    // 3. Users listener (RBAC table). onError surfaces permission problems
+    //    instead of leaving the table on "Loading team members..." forever.
     window.VrindaAdmin.listenToUsers((users) => {
+      staffLoadError = null;
       allUsers = users;
       renderStats();
+      renderStaffTable();
+    }, () => {
+      staffLoadError = 'Could not load users. Publish the database rules first:\nfirebase deploy --only database';
       renderStaffTable();
     });
 
@@ -372,14 +379,25 @@
   /* ---------------------------------------------------- PRODUCTS CATALOG */
   async function loadProducts() {
     const tbody = document.getElementById('productsTbody');
-    if (!tbody || !window.VrindaCatalog) return;
-
-    const products = await window.VrindaCatalog.getAllProducts();
-    if (!products.length) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem;">No products found.</td></tr>`;
+    if (!tbody || !window.VrindaCatalog) {
+      if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem;">Catalog service unavailable.</td></tr>`;
       return;
     }
 
+    try {
+      const products = await window.VrindaCatalog.getAllProducts();
+      if (!products.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem;">No products in the Firebase catalog yet. Click “➕ Add New Product” to create one.</td></tr>`;
+        return;
+      }
+      renderProductRows(products, tbody);
+    } catch (err) {
+      console.error('Catalog load failed:', err);
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem;">Could not load catalog: ${err.message}</td></tr>`;
+    }
+  }
+
+  function renderProductRows(products, tbody) {
     tbody.innerHTML = products.map(p => `
       <tr>
         <td>
@@ -393,8 +411,8 @@
         </td>
         <td><span class="badge badge-subtle">${p.category}</span></td>
         <td><strong>₹${(p.price || 0).toLocaleString('en-IN')}</strong></td>
-        <td>${p.customizable ? '✅ Yes' : '—'}</td>
-        <td>${p.bestseller ? '⭐ Yes' : '—'}</td>
+        <td>${(p.customizable || p.isPersonalized) ? '✅ Yes' : '—'}</td>
+        <td>${(p.bestseller || p.isBestSeller) ? '⭐ Yes' : '—'}</td>
         <td>
           <div class="admin-action-btns">
             <button class="btn btn-xs btn-outline js-edit-product" data-product='${JSON.stringify(p).replace(/'/g, "&apos;")}'>
@@ -480,23 +498,37 @@
     tbody.innerHTML = allCoupons.map(c => `
       <tr>
         <td><strong>${c.code}</strong></td>
-        <td><span class="badge badge-accent">${c.type}</span></td>
-        <td>${c.type === 'percent' ? `${c.value}% OFF` : c.type === 'flat' ? `₹${c.value} OFF` : 'Free Delivery'}</td>
+        <td><span class="badge badge-accent">${(c.type || '').toUpperCase()}</span></td>
+        <td>${c.type === 'percent' ? `${c.value}% OFF${c.maxDiscount ? ` (max ₹${c.maxDiscount})` : ''}` : c.type === 'flat' ? `₹${c.value} OFF` : 'Free Delivery'}</td>
         <td>${c.minOrder ? `₹${c.minOrder}` : 'No Min'}</td>
         <td>${c.description || '—'}</td>
         <td>
-          <button class="btn btn-xs btn-glass js-delete-coupon" data-code="${c.code}" style="color: var(--color-error);">
-            Delete
-          </button>
+          <div class="admin-action-btns">
+            <button class="btn btn-xs btn-outline js-edit-coupon" data-code="${c.code}">
+              Edit
+            </button>
+            <button class="btn btn-xs btn-glass js-delete-coupon" data-code="${c.code}" style="color: var(--color-error);">
+              Delete
+            </button>
+          </div>
         </td>
       </tr>
     `).join('');
+
+    tbody.querySelectorAll('.js-edit-coupon').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const code = btn.getAttribute('data-code');
+        const coupon = allCoupons.find(x => x.code === code);
+        if (coupon) openCouponModal(coupon);
+      });
+    });
 
     tbody.querySelectorAll('.js-delete-coupon').forEach(btn => {
       btn.addEventListener('click', async () => {
         const code = btn.getAttribute('data-code');
         if (!confirm(`Delete coupon code ${code}?`)) return;
-        await window.VrindaStore.deleteCoupon(code);
+        const res = await window.VrindaStore.deleteCoupon(code);
+        if (!res.success) alert('Delete failed: ' + res.error);
       });
     });
   }
@@ -504,6 +536,11 @@
   function renderStaffTable() {
     const tbody = document.getElementById('staffTbody');
     if (!tbody) return;
+
+    if (staffLoadError) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--color-error); white-space: pre-line;">${staffLoadError}</td></tr>`;
+      return;
+    }
 
     if (!allUsers.length) {
       tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 2rem;">No registered users in database.</td></tr>`;
@@ -572,21 +609,36 @@
     });
 
     document.getElementById('btnSaveStoreSettings')?.addEventListener('click', async () => {
+      const thresholdRaw = document.getElementById('settingFreeShipping').value.trim();
+      const feeRaw = document.getElementById('settingShippingFee').value.trim();
+
       const settingsPayload = {
         whatsapp: document.getElementById('settingWhatsapp').value.trim(),
         email: document.getElementById('settingEmail').value.trim(),
-        freeShippingThreshold: Number(document.getElementById('settingFreeShipping').value) || 1499,
-        shippingFee: Number(document.getElementById('settingShippingFee').value) || 99
+        freeShippingThreshold: thresholdRaw === '' ? 1499 : Number(thresholdRaw),
+        shippingFee: feeRaw === '' ? 99 : Number(feeRaw)
       };
+
+      if (Number.isNaN(settingsPayload.freeShippingThreshold) || Number.isNaN(settingsPayload.shippingFee)) {
+        alert('Free delivery threshold and shipping fee must be numbers.');
+        return;
+      }
 
       const seoPayload = {
         title: document.getElementById('settingSeoTitle').value.trim(),
         description: document.getElementById('settingSeoDesc').value.trim()
       };
 
-      await window.VrindaAdmin.saveSettings(settingsPayload);
-      await window.VrindaAdmin.saveSeo(seoPayload);
-      alert('Store settings and SEO saved to Realtime Database successfully!');
+      const settingsRes = await window.VrindaAdmin.saveSettings(settingsPayload);
+      const seoRes = await window.VrindaAdmin.saveSeo(seoPayload);
+
+      if (!settingsRes.success || !seoRes.success) {
+        const err = (settingsRes.error || seoRes.error || 'Unknown error');
+        alert('Save failed: ' + err +
+          (String(err).includes('Permission') ? '\n\nPublish the database rules first:\nfirebase deploy --only database' : ''));
+        return;
+      }
+      alert('Store settings and SEO saved to Firebase — the storefront picks them up live.');
     });
   }
   /* ---------------------------------------------------- MODALS & ACTIONS */
@@ -652,19 +704,56 @@
       openProductModal(null);
     });
 
+    // One-shot import of the bundled sample catalog into Firebase /products +
+    // /categories. Never overwrites existing rows (pass force only if asked).
+    document.getElementById('btnImportSampleCatalog')?.addEventListener('click', async () => {
+      if (!confirm('Import the bundled sample catalog into Firebase?\n\nThis only fills EMPTY /products and /categories nodes — products you already manage in the admin portal are left untouched.')) return;
+
+      const btn = document.getElementById('btnImportSampleCatalog');
+      if (btn) btn.disabled = true;
+      const res = await window.VrindaCatalog.importSampleCatalog();
+      if (btn) btn.disabled = false;
+
+      if (!res.success) {
+        alert('Import failed: ' + res.error +
+          (String(res.error).includes('Permission') ? '\n\nPublish the database rules first:\nfirebase deploy --only database' : ''));
+        return;
+      }
+      const { categories, products } = res.imported;
+      alert(categories || products
+        ? `Imported ${products} product(s) and ${categories} categor(y/ies) into Firebase.\n\nThe storefront now reads them from Firebase — edits made here are what customers see.`
+        : 'Firebase already has a catalog — nothing was imported. Manage your products in this table.');
+      loadProducts();
+    });
+
     // Save Product
     document.getElementById('btnSaveProduct')?.addEventListener('click', async () => {
       const id = document.getElementById('prodFormId').value;
+      const customizable = document.getElementById('prodFormCustomizable').checked;
+      const bestseller = document.getElementById('prodFormBestseller').checked;
+      const trending = document.getElementById('prodFormTrending')?.checked || false;
+      const isNew = document.getElementById('prodFormNew')?.checked || false;
+
       const productPayload = {
         name: document.getElementById('prodFormName').value.trim(),
         category: document.getElementById('prodFormCategory').value,
         price: Number(document.getElementById('prodFormPrice').value) || 0,
         image: document.getElementById('prodFormImage').value.trim() || '../assets/images/placeholder.jpg',
         description: document.getElementById('prodFormDesc').value.trim(),
-        customizable: document.getElementById('prodFormCustomizable').checked,
-        bestseller: document.getElementById('prodFormBestseller').checked
+        customizable: customizable,
+        bestseller: bestseller,
+        // The storefront (homepage grids, category sorts, cart tags) reads the
+        // is* names, the admin table reads the short ones — keep both in sync.
+        isPersonalized: customizable,
+        isBestSeller: bestseller,
+        isTrending: trending,
+        isNew: isNew
       };
 
+      if (!productPayload.name) {
+        alert('Please enter a product name.');
+        return;
+      }
       if (id) productPayload.id = id;
 
       const res = await window.VrindaCatalog.saveProduct(productPayload);
@@ -673,24 +762,37 @@
         document.getElementById('modalProductForm').style.display = 'none';
         loadProducts();
       } else {
-        alert('Save error: ' + res.error);
+        alert('Save error: ' + res.error +
+          (String(res.error).includes('Permission') ? '\n\nPublish the database rules first:\nfirebase deploy --only database' : ''));
       }
     });
 
-    // Add Coupon modal trigger
+    // Add Coupon modal trigger (reset to create mode)
     document.getElementById('btnOpenNewCouponModal')?.addEventListener('click', () => {
-      document.getElementById('modalCouponForm').style.display = 'flex';
+      openCouponModal(null);
     });
 
-    // Save Coupon
+    // Save Coupon (create or update an existing one)
     document.getElementById('btnSaveCoupon')?.addEventListener('click', async () => {
-      const couponPayload = {
+      const originalCode = editingCouponCode;
+      const existing = originalCode
+        ? (allCoupons.find(c => c.code === originalCode) || {})
+        : {};
+
+      const couponPayload = Object.assign({}, existing, {
         code: document.getElementById('couponFormCode').value.trim().toUpperCase(),
         type: document.getElementById('couponFormType').value,
         value: Number(document.getElementById('couponFormValue').value) || 0,
         minOrder: Number(document.getElementById('couponFormMin').value) || 0,
         description: document.getElementById('couponFormDesc').value.trim()
-      };
+      });
+
+      const maxEl = document.getElementById('couponFormMax');
+      if (maxEl) {
+        const maxVal = Number(maxEl.value) || 0;
+        if (maxVal > 0) couponPayload.maxDiscount = maxVal;
+        else delete couponPayload.maxDiscount;
+      }
 
       if (!couponPayload.code) {
         alert('Please specify a coupon code.');
@@ -698,12 +800,22 @@
       }
 
       const res = await window.VrindaStore.saveCoupon(couponPayload);
-      if (res.success) {
-        alert('Coupon created successfully!');
-        document.getElementById('modalCouponForm').style.display = 'none';
-      } else {
+      if (!res.success) {
         alert('Coupon error: ' + res.error);
+        return;
       }
+
+      // Code renamed during an edit -> remove the old key so no duplicate lingers.
+      if (originalCode && originalCode !== couponPayload.code) {
+        const delRes = await window.VrindaStore.deleteCoupon(originalCode);
+        if (!delRes.success) {
+          alert('Coupon saved as ' + couponPayload.code + ', but the old code ' + originalCode + ' could not be removed: ' + delRes.error);
+        }
+      }
+
+      alert(originalCode ? 'Coupon updated successfully!' : 'Coupon created successfully!');
+      document.getElementById('modalCouponForm').style.display = 'none';
+      editingCouponCode = null;
     });
   }
 
@@ -806,6 +918,40 @@
 
     document.getElementById('modalAssignDelivery').style.display = 'flex';
   }
+  /**
+   * Open the shared coupon modal in create mode (coupon = null) or edit mode
+   * (an existing coupon object). Editing pre-fills every field and remembers
+   * the original code so a rename can clean up the old RTDB key.
+   */
+  function openCouponModal(coupon) {
+    const modal = document.getElementById('modalCouponForm');
+    const title = document.getElementById('couponFormTitle');
+    const typeEl = document.getElementById('couponFormType');
+    if (typeEl) typeEl.value = (coupon && coupon.type) || 'percent';
+
+    if (coupon) {
+      editingCouponCode = coupon.code;
+      if (title) title.textContent = `Edit Coupon — ${coupon.code}`;
+      document.getElementById('couponFormCode').value = coupon.code || '';
+      document.getElementById('couponFormValue').value = coupon.value != null ? coupon.value : '';
+      document.getElementById('couponFormMin').value = coupon.minOrder || '';
+      document.getElementById('couponFormDesc').value = coupon.description || '';
+      const maxEl = document.getElementById('couponFormMax');
+      if (maxEl) maxEl.value = coupon.maxDiscount || '';
+    } else {
+      editingCouponCode = null;
+      if (title) title.textContent = 'Create Discount Coupon';
+      document.getElementById('couponFormCode').value = '';
+      document.getElementById('couponFormValue').value = '';
+      document.getElementById('couponFormMin').value = '';
+      document.getElementById('couponFormDesc').value = '';
+      const maxEl = document.getElementById('couponFormMax');
+      if (maxEl) maxEl.value = '';
+    }
+
+    if (modal) modal.style.display = 'flex';
+  }
+
   function openProductModal(prod) {
     const modal = document.getElementById('modalProductForm');
     const title = document.getElementById('modalProductTitle');
@@ -818,8 +964,12 @@
       document.getElementById('prodFormPrice').value = prod.price;
       document.getElementById('prodFormImage').value = prod.image || '';
       document.getElementById('prodFormDesc').value = prod.description || '';
-      document.getElementById('prodFormCustomizable').checked = !!prod.customizable;
-      document.getElementById('prodFormBestseller').checked = !!prod.bestseller;
+      document.getElementById('prodFormCustomizable').checked = !!(prod.customizable || prod.isPersonalized);
+      document.getElementById('prodFormBestseller').checked = !!(prod.bestseller || prod.isBestSeller);
+      const trendingEl = document.getElementById('prodFormTrending');
+      if (trendingEl) trendingEl.checked = !!prod.isTrending;
+      const newEl = document.getElementById('prodFormNew');
+      if (newEl) newEl.checked = !!prod.isNew;
     } else {
       title.textContent = 'Add New Product';
       document.getElementById('prodFormId').value = '';
@@ -830,6 +980,10 @@
       document.getElementById('prodFormDesc').value = '';
       document.getElementById('prodFormCustomizable').checked = false;
       document.getElementById('prodFormBestseller').checked = false;
+      const trendingEl = document.getElementById('prodFormTrending');
+      if (trendingEl) trendingEl.checked = false;
+      const newEl = document.getElementById('prodFormNew');
+      if (newEl) newEl.checked = false;
     }
 
     modal.style.display = 'flex';

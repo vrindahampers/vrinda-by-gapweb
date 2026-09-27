@@ -215,6 +215,7 @@
             <p>Add new hampers, edit prices, update photography, and manage inventory.</p>
           </div>
           <div class="admin-action-btns">
+            <button class="btn btn-sm btn-glass" id="btnImportSampleCatalog" title="Copy the bundled sample catalog into Firebase (only fills empty /products and /categories)">⬇ Import sample catalog</button>
             <button class="btn btn-sm btn-primary" id="btnOpenNewProductModal">➕ Add New Product</button>
           </div>
         </div>
@@ -519,14 +520,23 @@
         <textarea id="prodFormDesc" class="form-input" rows="3" placeholder="Handcrafted with premium materials..."></textarea>
       </div>
 
-      <div style="display: flex; gap: 20px;">
+      <div style="display: flex; gap: 20px; flex-wrap: wrap;">
         <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
-          <input type="checkbox" id="prodFormCustomizable"> Customizable
+          <input type="checkbox" id="prodFormCustomizable"> Customizable / Personalized
         </label>
         <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
           <input type="checkbox" id="prodFormBestseller"> Mark as Bestseller
         </label>
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+          <input type="checkbox" id="prodFormTrending"> Trending
+        </label>
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+          <input type="checkbox" id="prodFormNew"> New Arrival
+        </label>
       </div>
+      <p style="font-size: 11px; color: var(--color-text-muted); margin: 6px 0 0;">
+        These flags decide which homepage sections (Best Sellers, Trending, New Arrivals, Personalized Gifts) and category sorts the product appears in.
+      </p>
 
       <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 1rem;">
         <button class="btn btn-sm btn-glass" onclick="document.getElementById('modalProductForm').style.display='none'">Cancel</button>
@@ -539,7 +549,7 @@
   <div id="modalCouponForm" class="admin-modal-overlay" style="display: none;">
     <div class="admin-modal-card">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 0.75rem;">
-        <h2 style="font-size: 1.25rem; margin: 0;">Create Discount Coupon</h2>
+        <h2 id="couponFormTitle" style="font-size: 1.25rem; margin: 0;">Create Discount Coupon</h2>
         <button class="btn btn-xs btn-glass" onclick="document.getElementById('modalCouponForm').style.display='none'">✕</button>
       </div>
 
@@ -554,7 +564,7 @@
           <select id="couponFormType" class="form-select">
             <option value="percent">Percentage Off (%)</option>
             <option value="flat">Flat Amount Off (₹)</option>
-            <option value="free_shipping">Free Shipping</option>
+            <option value="shipping">Free Shipping</option>
           </select>
         </div>
         <div class="form-group">
@@ -563,9 +573,15 @@
         </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">Minimum Order Amount (₹)</label>
-        <input type="number" id="couponFormMin" class="form-input" placeholder="999">
+      <div class="form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div class="form-group">
+          <label class="form-label">Minimum Order Amount (₹)</label>
+          <input type="number" id="couponFormMin" class="form-input" placeholder="999">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Discount Cap (₹, percent only)</label>
+          <input type="number" id="couponFormMax" class="form-input" placeholder="e.g. 400">
+        </div>
       </div>
 
       <div class="form-group">

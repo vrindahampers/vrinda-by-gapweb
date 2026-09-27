@@ -7,6 +7,45 @@
 (function () {
   'use strict';
 
+  // Homepage product grids are fed by the Firebase catalog (admin managed).
+  // The bundled sample paints instantly so the page never blocks on a network
+  // round-trip, then hydrateCatalogFromFirebase() re-renders from /products.
+  let catalogProducts = (window.VRINDA_DATA && window.VRINDA_DATA.products) || [];
+
+  // The storefront historically used isBestSeller/isTrending/isNew/
+  // isPersonalized while the admin product form wrote bestseller/customizable.
+  // Accept either so rows created before or after the rename always show up.
+  function hasFlag(p, ...names) {
+    return names.some(name => !!p[name]);
+  }
+
+  function renderGrid(containerId, matches) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    let items = catalogProducts.filter(matches).slice(0, 4);
+    // Never leave a section blank just because nothing carries the flag yet.
+    if (!items.length) items = catalogProducts.slice(0, 4);
+    container.innerHTML = items.map(createProductCardHTML).join('');
+  }
+
+  async function hydrateCatalogFromFirebase() {
+    if (!window.VrindaCatalog || typeof window.VrindaCatalog.getProducts !== 'function') return;
+    try {
+      const products = await window.VrindaCatalog.getProducts();
+      if (!Array.isArray(products) || !products.length || products === catalogProducts) return;
+      catalogProducts = products;
+      renderBestSellers();
+      renderTrendingGifts();
+      renderNewArrivals();
+      renderPersonalizedGifts();
+      if (window.VrindaStore && typeof window.VrindaStore.syncWishlistButtons === 'function') {
+        window.VrindaStore.syncWishlistButtons();
+      }
+    } catch (err) {
+      console.warn('Homepage catalog hydrate warning:', err.message);
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     if (!window.VRINDA_DATA) return;
 
@@ -26,6 +65,9 @@
     if (window.VrindaStore && typeof window.VrindaStore.syncWishlistButtons === 'function') {
       window.VrindaStore.syncWishlistButtons();
     }
+
+    // Re-paint the product sections from the admin-managed Firebase catalog.
+    hydrateCatalogFromFirebase();
   });
 
   // Helper to build the product detail URL for a homepage card
@@ -164,34 +206,22 @@
 
   // Section 4: Best Sellers
   function renderBestSellers() {
-    const container = document.getElementById('bestSellersGrid');
-    if (!container) return;
-    const items = window.VRINDA_DATA.products.filter(p => p.isBestSeller).slice(0, 4);
-    container.innerHTML = items.map(createProductCardHTML).join('');
+    renderGrid('bestSellersGrid', p => hasFlag(p, 'isBestSeller', 'bestseller'));
   }
 
   // Section 5: Trending Gifts
   function renderTrendingGifts() {
-    const container = document.getElementById('trendingGiftsGrid');
-    if (!container) return;
-    const items = window.VRINDA_DATA.products.filter(p => p.isTrending).slice(0, 4);
-    container.innerHTML = items.map(createProductCardHTML).join('');
+    renderGrid('trendingGiftsGrid', p => hasFlag(p, 'isTrending', 'trending'));
   }
 
   // Section 6: New Arrivals
   function renderNewArrivals() {
-    const container = document.getElementById('newArrivalsGrid');
-    if (!container) return;
-    const items = window.VRINDA_DATA.products.filter(p => p.isNew || p.id === 'prod-007' || p.id === 'prod-004').slice(0, 4);
-    container.innerHTML = items.map(createProductCardHTML).join('');
+    renderGrid('newArrivalsGrid', p => hasFlag(p, 'isNew') || p.id === 'prod-007' || p.id === 'prod-004');
   }
 
   // Section 7: Personalized Gifts
   function renderPersonalizedGifts() {
-    const container = document.getElementById('personalizedGiftsGrid');
-    if (!container) return;
-    const items = window.VRINDA_DATA.products.filter(p => p.isPersonalized).slice(0, 4);
-    container.innerHTML = items.map(createProductCardHTML).join('');
+    renderGrid('personalizedGiftsGrid', p => hasFlag(p, 'isPersonalized', 'customizable'));
   }
 
   // Section 8: Occasions Grid
