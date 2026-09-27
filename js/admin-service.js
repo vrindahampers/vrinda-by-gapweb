@@ -41,10 +41,20 @@
       return () => ref.off('value', handler);
     },
 
-    // Update user role (Super Admin only: assigns role and syncs admins/staff/deliveryManagers node)
+    // Update user role (Super Admin and above: assigns the role and syncs the
+    // matching registry node). Which roles the caller may hand out is decided
+    // by VrindaAuth.canGrantRole, which only an owner may use for owner/manager.
     updateUserRole: async function (uid, newRole) {
       const db = this._db();
       if (!db || !uid || !newRole) return { success: false, error: 'Missing parameters' };
+
+      const auth = window.VrindaAuth;
+      if (auth && typeof auth.canGrantRole === 'function' && !auth.canGrantRole(newRole)) {
+        return {
+          success: false,
+          error: 'Your role cannot grant "' + newRole + '". Only Super Admin++ can assign the top two roles.'
+        };
+      }
 
       try {
         const updates = {};
@@ -55,7 +65,9 @@
         updates['staff/' + uid] = null;
         updates['deliveryManagers/' + uid] = null;
 
-        // Set matching role table
+        // Set matching role table. owner/manager deliberately have NO registry
+        // node: they are recognised purely by users/$uid/role, which is the
+        // source of truth every rule and every gate reads.
         if (newRole === 'superadmin') {
           updates['admins/' + uid] = true;
         } else if (newRole === 'staff') {
@@ -66,6 +78,26 @@
 
         await db.ref().update(updates);
         return { success: true, role: newRole };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+
+    /**
+     * Delete an order outright, together with its per-customer index entry.
+     * Reserved for Super Admin+ / Super Admin++ by the database rules, so a
+     * denied write here is the rules doing their job, not a bug.
+     */
+    deleteOrder: async function (orderId, userId) {
+      const db = this._db();
+      if (!db || !orderId) return { success: false, error: 'Missing order id' };
+
+      try {
+        const updates = {};
+        updates['orders/' + orderId] = null;
+        if (userId) updates['userOrders/' + userId + '/' + orderId] = null;
+        await db.ref().update(updates);
+        return { success: true };
       } catch (err) {
         return { success: false, error: err.message };
       }

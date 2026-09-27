@@ -243,6 +243,80 @@
       return 'customer';
     },
 
+    /**
+     * ROLE HIERARCHY (highest first).
+     *
+     * owner  — "Super Admin++". Full control of the entire site INCLUDING this
+     *          role table: can grant or revoke every role, including owner.
+     *          The only role that may hand out owner/manager.
+     * manager — "Super Admin+". Everything a Super Admin can do, PLUS the
+     *          destructive operations Super Admin deliberately cannot (delete an
+     *          order outright, edit a customer's record). Cannot grant owner or
+     *          manager, so a manager can never escalate anyone past itself.
+     * superadmin — existing role, unchanged. Can still promote staff/delivery.
+     *
+     * Note the ordering matters: `atLeast` is a numeric comparison, so a new
+     * role added in the middle automatically inherits the lower privileges.
+     */
+    ROLE_LEVELS: {
+      customer: 0,
+      delivery: 1,
+      staff: 2,
+      superadmin: 3,
+      manager: 4,
+      owner: 5
+    },
+
+    ROLE_LABELS: {
+      owner: 'Super Admin++',
+      manager: 'Super Admin+',
+      superadmin: 'Super Admin',
+      staff: 'Staff Admin',
+      delivery: 'Delivery Manager',
+      customer: 'Customer'
+    },
+
+    /** Numeric rank of a role; unknown roles rank as customer (0). */
+    roleLevel: function (role) {
+      const level = this.ROLE_LEVELS[role];
+      return typeof level === 'number' ? level : 0;
+    },
+
+    /**
+     * True when the signed-in user's role is at or above `role`.
+     * This is what every privilege check should use, because it keeps the
+     * hierarchy in ONE place instead of repeating role lists at each call site.
+     */
+    atLeast: function (role) {
+      if (!this.currentUser) return false;
+      return this.roleLevel(this.getUserRole()) >= this.roleLevel(role);
+    },
+
+    isOwner: function () {
+      return !!this.currentUser && this.getUserRole() === 'owner';
+    },
+
+    isManager: function () {
+      return !!this.currentUser && this.getUserRole() === 'manager';
+    },
+
+    /**
+     * May the current user assign `targetRole` to somebody?
+     *
+     * Only an owner can grant owner or manager. Everyone else who is allowed
+     * into a role table at all may only hand out the roles they already sit
+     * above, which stops a manager (or a super admin) from minting a peer and
+     * then using that peer to keep going.
+     */
+    canGrantRole: function (targetRole) {
+      if (!this.currentUser) return false;
+      const mine = this.getUserRole();
+      if (this.roleLevel(mine) < this.roleLevel('superadmin')) return false;
+      if (targetRole === 'owner' || targetRole === 'manager') return this.isOwner();
+      // Granting staff/delivery/customer needs at least Super Admin.
+      return true;
+    },
+
     // Check if current user has one of the allowed roles
     hasRole: function (allowedRoles) {
       if (!this.currentUser) return false;
@@ -272,8 +346,16 @@
       const role = this.getUserRole();
       const rolesArray = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
 
-      // Superadmin has universal access
-      if (role === 'superadmin' || rolesArray.includes(role)) {
+      // Hierarchy-aware: a higher role satisfies a gate that lists a lower one,
+      // so owner/manager walk into the Super Admin portal without it having to
+      // enumerate the new roles. The comparison is "at least as high as the
+      // LOWEST role on the list" — a gate for ['staff'] admits everyone from
+      // staff upwards, while a gate for ['owner'] admits only an owner.
+      const lowestRequired = rolesArray.reduce(
+        (lowest, r) => (this.roleLevel(r) < this.roleLevel(lowest) ? r : lowest),
+        rolesArray[0]
+      );
+      if (this.atLeast(lowestRequired)) {
         return true;
       }
 

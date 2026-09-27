@@ -783,6 +783,15 @@
 
     tbody.innerHTML = allUsers.map(u => {
       const role = u.role || 'customer';
+      const badgeClass = role === 'owner' ? 'badge-error'
+        : role === 'manager' ? 'badge-warning'
+        : role === 'superadmin' ? 'badge-accent'
+        : role === 'staff' ? 'badge-new'
+        : role === 'delivery' ? 'badge-primary' : 'badge-subtle';
+      // Guarded: a page can be loaded before auth.js finishes initialising, and
+      // this table must still render rather than throw on a missing label map.
+      const labels = (window.VrindaAuth && window.VrindaAuth.ROLE_LABELS) || {};
+      const roleLabel = labels[role] || role.toUpperCase();
       return `
         <tr>
           <td>
@@ -791,16 +800,16 @@
           </td>
           <td>${u.email || 'No email registered'}</td>
           <td>
-            <span class="badge ${role === 'superadmin' ? 'badge-accent' : role === 'staff' ? 'badge-new' : role === 'delivery' ? 'badge-primary' : 'badge-subtle'}">
-              ${role.toUpperCase()}
-            </span>
+            <span class="badge ${badgeClass}">${roleLabel}</span>
           </td>
           <td>
-            <select class="form-select js-role-select" data-uid="${u.uid}" style="max-width: 180px; padding: 0.35rem 0.6rem; font-size: 12px;">
+            <select class="form-select js-role-select" data-uid="${u.uid}" style="max-width: 200px; padding: 0.35rem 0.6rem; font-size: 12px;">
               <option value="customer" ${role === 'customer' ? 'selected' : ''}>Customer</option>
               <option value="staff" ${role === 'staff' ? 'selected' : ''}>Staff Admin</option>
               <option value="delivery" ${role === 'delivery' ? 'selected' : ''}>Delivery Manager</option>
               <option value="superadmin" ${role === 'superadmin' ? 'selected' : ''}>Super Admin</option>
+              <option value="manager" ${role === 'manager' ? 'selected' : ''}>Super Admin+ (Manager)</option>
+              <option value="owner" ${role === 'owner' ? 'selected' : ''}>Super Admin++ (Owner)</option>
             </select>
           </td>
         </tr>

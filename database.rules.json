@@ -28,31 +28,40 @@
       // Parent-level read: listing the whole /users node (the RBAC team table)
       // evaluates THIS rule, not the $uid children below — child rules can
       // never grant a read of their parent. Operations roles only.
-      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'delivery')",
+      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'delivery' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')",
       "$uid": {
         // Users can read and write only their own record; Super Admins & Staff can view user records
-        ".read": "auth != null && (auth.uid === $uid || (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff'))",
-        ".write": "auth != null && (auth.uid === $uid || (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin'))",
+        ".read": "auth != null && (auth.uid === $uid || (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner'))",
+        ".write": "auth != null && (auth.uid === $uid || (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner'))",
         "role": {
-          // Customers cannot elevate their own role to admin/staff
-          ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin')"
+          // ROLE ESCALATION GUARD.
+          // Writing a role is powerful, so it is split from the rest of the user
+          // record and checked far more strictly than "is an admin":
+          //   1. Nobody may write their OWN role - not even a manager or owner.
+          //      Without this, a manager could simply promote themselves to owner.
+          //   2. Only an OWNER may grant or revoke owner/manager. A manager or
+          //      super admin can still promote staff and delivery managers (the
+          //      existing workflow), but can never mint a peer.
+          // `newData.val()` is the role being written, so a write that would set
+          // a new role to 'owner' or 'manager' needs an owner to be performing it.
+          ".write": "auth != null && auth.uid !== $uid && (root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner') && ((newData.val() === 'owner' || newData.val() === 'manager') ? root.child('users').child(auth.uid).child('role').val() === 'owner' : true)"
         }
       }
     },
     "admins": {
       // Super Admin registry - only Super Admins can read or write
-      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin')",
-      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin')"
+      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')",
+      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')"
     },
     "staff": {
       // Staff registry - only Super Admins can assign staff
-      ".read": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff'))",
-      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin')"
+      ".read": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner'))",
+      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')"
     },
     "deliveryManagers": {
       // Delivery managers registry - Super Admins manage
-      ".read": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'delivery'))",
-      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin')"
+      ".read": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'delivery' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner'))",
+      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')"
     },
     "cart": {
       "$uid": {
@@ -69,23 +78,30 @@
       }
     },
     "orders": {
-      // Operations roles (Super Admin / Staff / Delivery Manager) read and update every order.
-      // Customers only ever touch their own order via the $orderId rules below.
+      // Operations roles (Super Admin / Staff / Delivery Manager / Super Admin+ / ++) read and
+      // update every order. Customers only ever touch their own order via the $orderId rules below.
       // IMPORTANT: Realtime Database rules cascade DOWNWARDS only - a permissive parent can never
       // be tightened by a child, so the parent must stay locked to operations roles.
-      ".read": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'delivery'))",
-      ".write": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'delivery'))",
+      //
+      // There is deliberately NO parent ".write" here. A parent .write would cascade down and
+      // grant EVERY operations role the right to delete any order, because rules can only ever
+      // loosen, never tighten. Writes (and the stricter delete rule) live on $orderId instead,
+      // where the delete case can be checked explicitly.
+      ".read": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'delivery' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner'))",
       "$orderId": {
         // Owner reads their own order; operations roles read all.
-        ".read": "auth != null && (data.child('userId').val() === auth.uid || (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'delivery'))",
-        // Operations roles can always write; a customer may only CREATE an order stamped with their own uid.
-        ".write": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'delivery') || (!data.exists() && newData.child('userId').val() === auth.uid))",
+        ".read": "auth != null && (data.child('userId').val() === auth.uid || (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'delivery' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner'))",
+        // CREATE + UPDATE: any operations role, or a customer creating their own order.
+        // DELETING an order (newData no longer exists) is a separate, stricter case below and
+        // is reserved for Super Admin+ and Super Admin++ - a Super Admin cannot delete an order
+        // outright, they can only cancel it through the status flow.
+        ".write": "auth != null && ((!newData.exists() && (root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')) || ((root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'delivery' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner') && newData.exists()) || (!data.exists() && newData.exists() && newData.child('userId').val() === auth.uid))",
         // Narrow owner escape hatch for the Phase 5 cancellation-request markers.
         "cancellationStatus": {
-          ".write": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff') || (!data.exists() && root.child('userOrders').child(auth.uid).child($orderId).exists()))"
+          ".write": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner') || (!data.exists() && root.child('userOrders').child(auth.uid).child($orderId).exists()))"
         },
         "cancellationRequestId": {
-          ".write": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff') || (!data.exists() && root.child('userOrders').child(auth.uid).child($orderId).exists()))"
+          ".write": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner') || (!data.exists() && root.child('userOrders').child(auth.uid).child($orderId).exists()))"
         }
       }
     },
@@ -94,23 +110,23 @@
       // Super Admins & Staff review, approve or reject them.
       // Parent-level read: the admin queue reads the WHOLE node, and a $requestId
       // child rule can never grant a read of its parent (same trap as /users).
-      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff')",
+      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')",
       "$requestId": {
-        ".read": "auth != null && (data.child('userId').val() === auth.uid || (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff'))",
-        ".write": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin') || (!data.exists() && root.child('userOrders').child(auth.uid).child(newData.child('orderId').val()).exists()))"
+        ".read": "auth != null && (data.child('userId').val() === auth.uid || (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner'))",
+        ".write": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner') || (!data.exists() && root.child('userOrders').child(auth.uid).child(newData.child('orderId').val()).exists()))"
       }
     },
     "userOrders": {
       // Lightweight per-customer order index (Phase 4/5) - one cheap read per customer.
       "$uid": {
         // Delivery managers also maintain the index because status/dispatch updates write here.
-        ".read": "auth != null && (auth.uid === $uid || (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'delivery'))",
-        ".write": "auth != null && (auth.uid === $uid || (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'delivery'))"
+        ".read": "auth != null && (auth.uid === $uid || (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'delivery' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner'))",
+        ".write": "auth != null && (auth.uid === $uid || (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'delivery' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner'))"
       }
     },
     "adminNotifications": {
       // Staff-facing alerts for new orders and cancellation requests; customers never read these.
-      ".read": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'delivery'))",
+      ".read": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('deliveryManagers').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'delivery' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner'))",
       ".write": "auth != null"
     },
     "paymentSessions": {
@@ -130,19 +146,19 @@
     "products": {
       // Products are publicly readable by anyone; editable only by Admins
       ".read": true,
-      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin')"
+      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')"
     },
     "categories": {
       // Categories are publicly readable; editable only by Admins
       ".read": true,
-      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin')"
+      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')"
     },
     "reviews": {
       // Publicly readable; verified customers own their own review rows; Staff/Admins moderate all.
       ".read": true,
       "$productId": {
         // Moderation (delete any review) is reserved for Staff and Super Admins.
-        ".write": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff'))",
+        ".write": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner'))",
         "$reviewId": {
           // A verified shopper may only create/edit/remove a review stamped with their own uid.
           ".write": "auth != null && auth.token.email_verified == true && (!data.exists() || data.child('userId').val() === auth.uid) && (!newData.exists() || newData.child('userId').val() === auth.uid)"
@@ -152,41 +168,50 @@
     "coupons": {
       // Coupons are publicly readable for checkout validation; only Admins write
       ".read": true,
-      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin')"
+      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')"
     },
     "banners": {
       // Promotional banners managed by Super Admin
       ".read": true,
-      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin')"
+      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')"
     },
     "blogs": {
       // Blog posts managed by Super Admin
       ".read": true,
-      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin')"
+      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')"
     },
     "settings": {
       // Site config, payment details, contact info managed by Super Admin
       ".read": true,
-      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin')"
+      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')"
     },
     "seo": {
       // SEO meta configurations managed by Super Admin
       ".read": true,
-      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin')"
+      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')"
     },
     "faqs": {
       // Homepage FAQ answers, edited from Admin -> FAQ & Content.
       // Public read (the homepage is public), admin-only write.
       ".read": true,
-      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin')"
+      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')"
+    },
+    "siteContent": {
+      // Every editable string, image URL, button label and link target on the
+      // storefront, keyed by a dotted path (e.g. "home.hero.title"). Publicly
+      // readable so pages can render it, and writable ONLY by Super Admin++
+      // ("owner"). A manager or super admin is deliberately excluded: this node
+      // is the whole-site editor and is the owner's alone.
+      ".read": true,
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'owner'"
     },
     "customRequests": {
       // Customers submit bespoke configurator designs; Staff/Admins review them
       // Parent-level read so the admin portal can list EVERY customer's designs -
       // a $uid child rule can never grant a read of the whole node.
-      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff')",
+      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')",
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff'))",
+        ".read": "auth != null && (auth.uid === $uid || (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner'))",
         ".write": "auth != null && auth.uid === $uid && auth.token.email_verified == true"
       }
     }

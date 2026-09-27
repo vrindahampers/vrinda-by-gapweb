@@ -110,6 +110,8 @@ In Realtime Database, user records are stored at `users/$uid`:
 ```
 
 To assign an Admin or Staff or Delivery Manager:
+- **Super Admin++ (owner)**: Set `"role": "owner"` under `users/$uid/role`. No registry node needed.
+- **Super Admin+ (manager)**: Set `"role": "manager"` under `users/$uid/role`. No registry node needed.
 - **Super Admin**: Set `"role": "superadmin"` in RTDB under their user's `users/$uid/role` and add their UID under `admins/$uid: true`.
 - **Staff Admin**: Set `"role": "staff"` under `users/$uid/role` and `staff/$uid: true`.
 - **Delivery Manager**: Set `"role": "delivery"` under `users/$uid/role` and `deliveryManagers/$uid: true`.
@@ -120,6 +122,39 @@ To assign an Admin or Staff or Delivery Manager:
 > After that, the **Admin → Staff & Roles** tab in `admin/index.html` can promote everyone else.
 > Remember to **re-deploy `database.rules.json`** after changing rules — the portals will show
 > `PERMISSION_DENIED` until the new role nodes exist in your Firebase project.
+
+### The two elevated roles (Super Admin+ and Super Admin++)
+
+The role ladder, highest first, is defined once in `VrindaAuth.ROLE_LEVELS`:
+
+| Role | Value | What it adds |
+| --- | --- | --- |
+| **Super Admin++** | `owner` | Everything a Super Admin can do, **plus** the whole-site content editor (`/siteContent`) and the power to grant or revoke the top two roles. |
+| **Super Admin+** | `manager` | Everything a Super Admin can do, **plus** deleting an order outright and editing a customer's record. |
+| **Super Admin** | `superadmin` | The existing role, unchanged. Promotes staff and delivery managers, as before. |
+| **Staff Admin** | `staff` | Unchanged. |
+| **Delivery Manager** | `delivery` | Unchanged. |
+
+`VrindaAuth.atLeast('superadmin')` is how privileges are checked, so a Manager or Owner walks
+into the Super Admin portal without that portal having to enumerate the new roles.
+
+**Three security properties are enforced in `database.rules.json`, not just in the UI:**
+
+1. **Nobody may write their own role** (`users/$uid/role` has `auth.uid !== $uid`). Without
+   this, a Manager could simply promote themselves to Owner.
+2. **Only an Owner may grant or revoke Owner/Manager.** A Manager or Super Admin can still
+   promote staff and delivery managers, but can never mint a peer. The rule inspects
+   `newData.val()` to tell a promotion to the top two apart from an ordinary one.
+3. **Deleting an order requires Manager or Owner.** The `/orders` node deliberately has **no
+   parent `.write`** — a parent write cascades downwards and would have handed deletion to every
+   operations role, because rules can only loosen, never tighten. The delete case
+   (`!newData.exists()`) is therefore checked explicitly on `$orderId`.
+
+`/siteContent` is writable by `owner` alone and is publicly readable so pages can render it.
+
+> **Bootstrapping the first Owner:** because rule 1 above blocks self-promotion, the very first
+> `owner` must be set **manually in the Firebase console** (`users/<uid>/role = "owner"`).
+> After that, the Owner can promote anyone from **Admin → Staff & Roles**.
 
 ### Role resolution in the rules (important)
 
