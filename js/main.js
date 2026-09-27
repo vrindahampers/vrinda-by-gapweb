@@ -8,9 +8,14 @@
   'use strict';
 
   // Homepage product grids are fed by the Firebase catalog (admin managed).
-  // The bundled sample paints instantly so the page never blocks on a network
-  // round-trip, then hydrateCatalogFromFirebase() re-renders from /products.
-  let catalogProducts = (window.VRINDA_DATA && window.VRINDA_DATA.products) || [];
+  //
+  // This starts EMPTY on purpose. It used to start from
+  // window.VRINDA_DATA.products, which meant the eight hardcoded sample
+  // products rendered before Firebase answered — and stayed on screen if
+  // Firebase was empty, so deleting the catalog from the database appeared to
+  // do nothing. Now the only source is /products, and an empty catalog is
+  // rendered as an honest empty state.
+  let catalogProducts = [];
 
   // The storefront historically used isBestSeller/isTrending/isNew/
   // isPersonalized while the admin product form wrote bestseller/customizable.
@@ -22,9 +27,19 @@
   function renderGrid(containerId, matches) {
     const container = document.getElementById(containerId);
     if (!container) return;
-    let items = catalogProducts.filter(matches).slice(0, 4);
-    // Never leave a section blank just because nothing carries the flag yet.
-    if (!items.length) items = catalogProducts.slice(0, 4);
+    const items = catalogProducts.filter(matches).slice(0, 4);
+    // Never leave a section blank just because nothing carries the flag. But
+    // when the whole catalog is empty, say so plainly instead of rendering an
+    // empty box, so an owner with no products yet can tell the page is healthy.
+    if (!items.length && catalogProducts.length) {
+      container.innerHTML = catalogProducts.slice(0, 4).map(createProductCardHTML).join('');
+      return;
+    }
+    if (!items.length) {
+      container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 2rem 1rem; color: var(--color-text-muted); font-size: 14px;">' +
+        'New gifts are on their way — please check back shortly.</div>';
+      return;
+    }
     container.innerHTML = items.map(createProductCardHTML).join('');
   }
 

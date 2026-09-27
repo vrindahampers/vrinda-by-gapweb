@@ -218,7 +218,9 @@
 
   function searchCatalog() {
     if (searchProductsCache) return searchProductsCache;
-    searchProductsCache = (window.VRINDA_DATA && window.VRINDA_DATA.products) || [];
+    // Firebase only. The bundled sample array is empty now, and seeding it
+    // from VRINDA_DATA would make search suggest products that no longer exist.
+    searchProductsCache = [];
 
     if (!searchCatalogRequested && window.VrindaCatalog && typeof window.VrindaCatalog.getProducts === 'function') {
       searchCatalogRequested = true;

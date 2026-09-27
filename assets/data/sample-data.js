@@ -186,155 +186,25 @@ window.VRINDA_DATA = {
     { id: 'midnight', label: 'Midnight Surprise (11:30 PM – 12:30 AM)' }
   ],
 
-  products: [
-    {
-      id: 'prod-001',
-      name: 'Velvet Midnight Rose Bouquet',
-      slug: 'velvet-midnight-rose-bouquet',
-      category: 'bouquets',
-      categoryName: 'Handcrafted Bouquets',
-      price: 1899,
-      originalPrice: 2499,
-      rating: 4.9,
-      reviewCount: 48,
-      badge: 'Best Seller',
-      image: 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?auto=format&fit=crop&w=700&q=80',
-      isBestSeller: true,
-      isTrending: true,
-      isNew: false,
-      isPersonalized: true,
-      description: 'Deep red velvet everlasting roses wrapped in gold Korean crepe paper with fairy lights.'
-    },
-    {
-      id: 'prod-002',
-      name: 'The Royal Romance Luxury Hamper',
-      slug: 'the-royal-romance-luxury-hamper',
-      category: 'hampers',
-      categoryName: 'Luxury Hampers',
-      price: 3499,
-      originalPrice: 4299,
-      rating: 5.0,
-      reviewCount: 36,
-      badge: 'Signature',
-      image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=700&q=80',
-      isBestSeller: true,
-      isTrending: true,
-      isNew: false,
-      isPersonalized: true,
-      description: 'Magnetic trunk box with aromatic soy candle, custom music frame, chocolates, and polaroids.'
-    },
-    {
-      id: 'prod-003',
-      name: 'Custom Spotify Acrylic Plaque & Stand',
-      slug: 'custom-spotify-acrylic-plaque-stand',
-      category: 'personalized-gifts',
-      categoryName: 'Bespoke Keepsakes',
-      price: 999,
-      originalPrice: 1499,
-      rating: 4.8,
-      reviewCount: 92,
-      badge: 'Trending',
-      image: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=700&q=80',
-      isBestSeller: true,
-      isTrending: true,
-      isNew: false,
-      isPersonalized: true,
-      description: 'Laser-cut acrylic glass engraved with your favorite song track, timestamp, and photograph.'
-    },
-    {
-      id: 'prod-004',
-      name: 'Wax-Sealed Vintage Calligraphy Letter',
-      slug: 'wax-sealed-vintage-calligraphy-letter',
-      category: 'handwritten-letters',
-      categoryName: 'Handwritten Letters',
-      price: 699,
-      originalPrice: 899,
-      rating: 5.0,
-      reviewCount: 29,
-      badge: 'Artisanal',
-      image: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=700&q=80',
-      isBestSeller: false,
-      isTrending: true,
-      isNew: true,
-      isPersonalized: true,
-      description: 'Burnt-edge parchment written with classic dip-pen ink, tied in twine and stamped with seal.'
-    }
-    ,
-    {
-      id: 'prod-005',
-      name: 'Retro Polaroid Mini-Tin Set (16 Prints)',
-      slug: 'retro-polaroid-mini-tin-set-16-prints',
-      category: 'polaroids',
-      categoryName: 'Polaroids & Frames',
-      price: 549,
-      originalPrice: 799,
-      rating: 4.7,
-      reviewCount: 63,
-      badge: 'Staff Pick',
-      image: 'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?auto=format&fit=crop&w=700&q=80',
-      isBestSeller: true,
-      isTrending: false,
-      isNew: false,
-      isPersonalized: true,
-      description: 'High-gloss Fujifilm style polaroid prints stored in a customized vintage embossed tin.'
-    },
-    {
-      id: 'prod-006',
-      name: 'Enchanted Butterfly Bell Jar Dome',
-      slug: 'enchanted-butterfly-bell-jar-dome',
-      category: 'bouquets',
-      categoryName: 'Handcrafted Bouquets',
-      price: 1599,
-      originalPrice: 1999,
-      rating: 4.9,
-      reviewCount: 41,
-      badge: 'New Arrival',
-      image: 'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?auto=format&fit=crop&w=700&q=80',
-      isBestSeller: false,
-      isTrending: false,
-      isNew: true,
-      isPersonalized: true,
-      description: 'Illuminated glass bell jar featuring pastel fluttering butterflies and fairy ambient glow.'
-    },
-    {
-      id: 'prod-007',
-      name: 'Spotify Code & Initials Charm Keychain',
-      slug: 'spotify-code-initials-charm-keychain',
-      category: 'keychains',
-      categoryName: 'Custom Keychains',
-      price: 399,
-      originalPrice: 599,
-      rating: 4.9,
-      reviewCount: 114,
-      badge: 'Pocket Love',
-      image: 'https://images.unsplash.com/photo-1614036417651-efe5912149d8?auto=format&fit=crop&w=700&q=80',
-      isBestSeller: true,
-      isTrending: true,
-      isNew: false,
-      isPersonalized: true,
-      description: 'Durable clear acrylic with your scannable Spotify code and high-resolution photo.'
-    },
-    {
-      id: 'prod-008',
-      name: 'Cosy Evening Artisanal Coffee Hamper',
-      slug: 'cosy-evening-artisanal-coffee-hamper',
-      category: 'hampers',
-      categoryName: 'Luxury Hampers',
-      price: 2799,
-      originalPrice: 3299,
-      rating: 4.8,
-      reviewCount: 19,
-      badge: 'New Arrival',
-      image: 'https://images.unsplash.com/photo-1511920170033-f8396924c348?auto=format&fit=crop&w=700&q=80',
-      isBestSeller: false,
-      isTrending: false,
-      isNew: true,
-      isPersonalized: true,
-      description: 'Handmade ceramic mug with custom name engraving, dark roast beans, and scented hazelnut candle.'
-    }
-
-  ]
-  ,
+  /* ---------------------------------------------------------------------
+   * PRODUCTS ARE NOT DEFINED HERE.
+   *
+   * The catalog lives in Firebase at /products and nowhere else. These eight
+   * placeholder rows used to ship in this file, which caused two problems:
+   *   1. Deleting every product from the database appeared to do nothing,
+   *      because catalog-service.js fell back to this array whenever the
+   *      Firebase read failed or the node was empty.
+   *   2. A Super Admin loading any page with an empty catalog silently
+   *      re-imported them, so an intentionally empty shop was impossible.
+   *
+   * The array is kept as an empty list so the page scripts that read
+   * window.VRINDA_DATA.products keep working, and so an empty catalog is a
+   * normal, supported state rather than a crash.
+   *
+   * To add products, use Admin -> Bulk Product Maker, which writes to
+   * /products in Firebase.
+   * ------------------------------------------------------------------- */
+  products: [],
   testimonials: [
     {
       name: 'Aanya Sharma',

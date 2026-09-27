@@ -45,8 +45,10 @@
         window.VrindaCatalog.getProducts()
       ]);
 
-      if (cats && cats.length) allCategories = cats;
-      if (prods && prods.length) allProducts = prods;
+      // Firebase is the source of truth: an empty array is a deliberate empty
+      // catalog, so assign unconditionally instead of keeping stale rows.
+      if (Array.isArray(cats)) allCategories = cats;
+      if (Array.isArray(prods)) allProducts = prods;
 
       renderCategoryChips();
       updateCategoryHeader();

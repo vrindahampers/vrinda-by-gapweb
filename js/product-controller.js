@@ -23,12 +23,20 @@
       currentProduct = await window.VrindaCatalog.getProductByIdOrSlug(productId || productSlug);
     }
 
-    if (!currentProduct && window.VRINDA_DATA && window.VRINDA_DATA.products) {
-      currentProduct = window.VRINDA_DATA.products.find(p => p.id === productId || p.slug === productSlug) || window.VRINDA_DATA.products[0];
+    // Fallback to the bundled catalog ONLY if it actually holds the product.
+    // This used to end in "|| VRINDA_DATA.products[0]", so a URL for a product
+    // that had been deleted (or a typo) silently rendered a completely
+    // DIFFERENT product's page. Never do that: an unknown product must 404.
+    if (!currentProduct && window.VRINDA_DATA && Array.isArray(window.VRINDA_DATA.products) && window.VRINDA_DATA.products.length) {
+      currentProduct = window.VRINDA_DATA.products.find(
+        p => p.id === productId || p.slug === productSlug
+      ) || null;
     }
 
     if (!currentProduct) {
-      window.location.href = '../category/?slug=all';
+      // Prefer a real 404 over redirecting to the catalog, so a deleted or
+      // mistyped product URL reports honestly.
+      window.location.replace('../404.html');
       return;
     }
 

@@ -27,19 +27,22 @@
       return !!(auth && auth.currentUser && typeof auth.hasRole === 'function' && auth.hasRole('superadmin'));
     },
 
-    // Initialize or seed Firebase RTDB if empty (Super Admin only, once the
-    // auth session has resolved so we never attempt a denied write).
+    /**
+     * Auto-seeding is deliberately disabled.
+     *
+     * This used to refill /products (and /categories) from the bundled sample
+     * data the moment a Super Admin loaded any page while the catalog was
+     * empty. That made an intentionally empty catalog impossible to keep: the
+     * owner would clear the shop and the placeholder products would be straight
+     * back. The store's real catalog now lives only in Firebase, so the sample
+     * rows have been removed from assets/data/sample-data.js and nothing
+     * re-imports them.
+     *
+     * importSampleCatalog() is kept for reference, but it is a no-op without
+     * sample products to import, and the admin button is hidden.
+     */
     initSeedIfNeeded: function () {
-      if (typeof firebase === 'undefined' || !firebase.database) return;
-
-      const run = () => {
-        if (this.canWriteCatalog()) this.importSampleCatalog();
-      };
-
-      const auth = window.VrindaAuth;
-      if (auth && typeof auth.whenReady === 'function') auth.whenReady(run);
-      else if (auth && typeof auth.onAuthChange === 'function') auth.onAuthChange(run);
-      else run();
+      // Intentionally does nothing. See the note above.
     },
 
     /**
@@ -118,6 +121,13 @@
     },
 
     // Fetch all products (storefront — never returns products hidden by the admin)
+    //
+    // Firebase /products is the ONLY source of truth. This used to fall back to
+    // the bundled sample catalog when the read failed or the node was missing,
+    // which is why deleting every product from the database appeared to do
+    // nothing: the hardcoded sample rows reappeared in every grid. An empty or
+    // unreachable catalog now stays empty, because showing products the owner
+    // has deliberately deleted is worse than showing none.
     getProducts: async function () {
       if (this.productsCache) return this.productsCache.filter(isLive);
 
@@ -129,12 +139,15 @@
             this.productsCache = Array.isArray(data) ? data.filter(Boolean) : Object.values(data);
             return this.productsCache.filter(isLive);
           }
+          // The node exists but is empty: that is a valid, deliberate state.
+          this.productsCache = [];
+          return [];
         } catch (e) {
-          console.warn('Firebase RTDB products read warning; using local data:', e.message);
+          console.warn('Firebase RTDB products read warning:', e.message);
         }
       }
 
-      this.productsCache = (window.VRINDA_DATA && window.VRINDA_DATA.products) || [];
+      this.productsCache = [];
       return this.productsCache;
     },
 

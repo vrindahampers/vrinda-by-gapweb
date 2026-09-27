@@ -776,11 +776,11 @@
 
   Store.loadCatalogCache = async function () {
     if (this._catalogCache) return this._catalogCache;
-    if (window.VrindaCatalog) {
-      this._catalogCache = await window.VrindaCatalog.getProducts();
-    } else {
-      this._catalogCache = (window.VRINDA_DATA && window.VRINDA_DATA.products) || [];
-    }
+    // Firebase only. The bundled sample array is empty, so falling back to it
+    // would only ever add dead weight.
+    this._catalogCache = (window.VrindaCatalog && typeof window.VrindaCatalog.getProducts === 'function')
+      ? await window.VrindaCatalog.getProducts()
+      : [];
     return this._catalogCache;
   };
 
