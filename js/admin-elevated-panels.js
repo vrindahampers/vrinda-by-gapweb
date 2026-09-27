@@ -279,7 +279,11 @@
 
       form.innerHTML = S.SCHEMA.map((group) => {
         const rows = group.items.map((item) => {
-          const value = S.get(this.values, item.key, '');
+          // A stored override wins; otherwise show the shipped default, so the
+          // owner sees the text that is actually live rather than a blank box.
+          const stored = S.get(this.values, item.key, undefined);
+          const value = stored === undefined ? (item.default || '') : stored;
+          const overridden = stored !== undefined && String(stored) !== String(item.default || '');
           const id = 'sc-' + item.key.replace(/\./g, '-');
           const control = item.type === 'textarea'
             ? '<textarea id="' + id + '" class="form-input" rows="3" data-sc-key="' + esc(item.key) + '">' + esc(value) + '</textarea>'
@@ -291,7 +295,9 @@
               : '<input type="' + (item.type === 'url' ? 'url' : 'text') + '" id="' + id +
                 '" class="form-input" value="' + esc(value) + '" data-sc-key="' + esc(item.key) + '">';
           return '<div class="form-group" style="margin-bottom: 1rem;">' +
-            '<label class="form-label" for="' + id + '">' + esc(item.label) + '</label>' + control +
+            '<label class="form-label" for="' + id + '">' + esc(item.label) +
+              (overridden ? ' <span class="badge badge-new" style="font-size: 10px;">edited</span>' : '') +
+            '</label>' + control +
             '<div style="font-size: 11px; color: var(--color-text-muted); margin-top: 3px;">' + esc(item.key) + '</div>' +
             '</div>';
         }).join('');

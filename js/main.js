@@ -357,6 +357,34 @@
       msg.style.color = color;
     };
 
+    /**
+     * Apply the owner's saved copy from /siteContent. The markup above is the
+     * shipped default; anything the Super Admin++ has overridden replaces it.
+     * A failure here is ignored on purpose — the page must render with its
+     * built-in text rather than an empty section.
+     */
+    const applyContent = (values) => {
+      if (!values || !section) return;
+      const C = window.VrindaSiteContent;
+      const set = (key, fallback) => {
+        const val = C.get(values, key, fallback);
+        return (val === undefined || val === null) ? fallback : val;
+      };
+      const head = section.querySelector('h2');
+      const sub = section.querySelector('p');
+      const tag = section.querySelector('.section-tag');
+      const btn = document.getElementById('newsletterBtn');
+      if (tag) tag.textContent = set('home.newsletter.tag', tag.textContent);
+      if (head) head.textContent = set('home.newsletter.title', head.textContent);
+      if (sub) sub.textContent = set('home.newsletter.body', sub.textContent);
+      if (btn) btn.textContent = set('home.newsletter.buttonText', btn.textContent);
+    };
+    if (window.VrindaSiteContent) {
+      window.VrindaSiteContent.load()
+        .then((res) => { if (res.success) applyContent(res.values); })
+        .catch(() => { /* keep the built-in copy */ });
+    }
+
     const showAlreadyJoined = () => {
       form.style.display = 'none';
       if (section) {
