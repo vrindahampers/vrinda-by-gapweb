@@ -18,7 +18,7 @@
 > `functions/index.js`):
 >
 > ```bash
-> firebase functions:secrets:set FAMGATEWAY_API_KEY   # paste: fam_ea93a78892a4fe519445d40a71d24f80e1f792cb
+> firebase functions:secrets:set FAMGATEWAY_API_KEY   # paste: <YOUR-FAMGATEWAY-MERCHANT-KEY>
 > firebase deploy --only functions
 > ```
 >

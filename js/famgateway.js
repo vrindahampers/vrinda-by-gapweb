@@ -49,10 +49,15 @@
     qrImagePath: '/api/qr-image.php',
     receiptPath: '/transaction-details.php',
 
-    /* --- FamGateway merchant API key — kept in THIS file on purpose (your
-       call): paste it here and payments go live with nothing else to deploy.
-       It is visible in page source; see the risk note in the header. --- */
-    apiKey: 'fam_ea93a78892a4fe519445d40a71d24f80e1f792cb',
+    /* --- FamGateway merchant API key ---------------------------------------
+       NEVER COMMIT THE REAL VALUE. It is injected at deploy time from the
+       GitHub Actions secret FAMGATEWAY_API_KEY into the published copy
+       (.github/workflows/deploy-pages.yml), so the repository stays key-free.
+
+       For LOCAL testing, paste the key here temporarily:
+         apiKey: '<YOUR-FAMGATEWAY-MERCHANT-KEY>',
+       and remember to revert it to '' before committing.  --- */
+    apiKey: '',
     merchantUpiId: 'ishikavh@fam',                           // your FamPay UPI id, e.g. yourname@fam
     merchantName: 'vrindahampers',
 
@@ -61,7 +66,7 @@
        browser can create a payment but never confirm one (measured: preflight 401,
        no access-control-allow-origin). Deploy them with:
 
-         firebase functions:secrets:set FAMGATEWAY_API_KEY=fam_ea93a78892a4fe519445d40a71d24f80e1f792cb
+         firebase functions:secrets:set FAMGATEWAY_API_KEY=<YOUR-FAMGATEWAY-MERCHANT-KEY>
          firebase deploy --only database,functions
 
        then fill the two URLs below (deterministic for this project):

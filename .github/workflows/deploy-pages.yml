@@ -32,39 +32,62 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Refuse to publish a live merchant key to a public repository.
-      - name: Block a leaked FamGateway merchant key
+      # The merchant key must never be committed: on the free (Spark) plan there
+      # are no Cloud Functions, so the key is injected at deploy time from an
+      # Actions secret into the PUBLISHED COPY only. The repository (and its
+      # history) therefore stays key-free.
+      - name: Stage the site and inject the merchant key
+        env:
+          FAMGATEWAY_API_KEY: ${{ secrets.FAMGATEWAY_API_KEY }}
         run: |
-          if grep -qE "apiKey: *'fam_[a-z0-9]+'" js/famgateway.js; then
-            echo "::error::js/famgateway.js contains a live FamGateway merchant key."
-            echo "Publishing would expose it to the whole internet. Fix it first:"
-            echo "  1) firebase functions:secrets:set FAMGATEWAY_API_KEY=<your key>"
-            echo "  2) firebase deploy --only functions"
-            echo "  3) fill proxyCreateOrderUrl + proxyVerifyOrderUrl in js/famgateway.js"
-            echo "  4) set apiKey: '' in js/famgateway.js and push again"
-            echo "See GITHUB_HOSTING.md."
+          set -euo pipefail
+
+          if [ -z "${FAMGATEWAY_API_KEY:-}" ]; then
+            echo "::error::Repository secret FAMGATEWAY_API_KEY is not set."
+            echo "Add it once: GitHub -> Settings -> Secrets and variables ->"
+            echo "Actions -> New repository secret -> FAMGATEWAY_API_KEY"
+            echo "(value: your FamGateway merchant key, e.g. fam_ea93a7...)."
             exit 1
           fi
-          echo "No merchant key in the published files. Continuing."
+
+          if grep -qE "apiKey: *'fam_[a-z0-9]+'" js/famgateway.js; then
+            echo "::error::js/famgateway.js in the repository contains a live key."
+            echo "Commit it as apiKey: '' and keep the real value in the secret."
+            exit 1
+          fi
+
+          # Build a clean staging copy so the working tree is never modified.
+          rm -rf .pages
+          mkdir -p .pages
+          rsync -a --exclude '.git' --exclude '.pages' --exclude 'functions' \
+                --exclude 'node_modules' --exclude '.github' ./ .pages/
+
+          KEY="${FAMGATEWAY_API_KEY//\'/}"
+          sed -i "s|apiKey: ''|apiKey: '${KEY}'|" .pages/js/famgateway.js
+
+          if ! grep -q "apiKey: 'fam_" .pages/js/famgateway.js; then
+            echo "::error::Injection failed - check that js/famgateway.js has apiKey: ''"
+            exit 1
+          fi
+          echo "Merchant key injected into the staged copy (repository stays clean)."
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
-          # functions/ is server-side code; it must never be served as a static file.
+          # The staged copy already excludes functions/, .github/ and dotfiles.
+          path: .pages
           exclude: |
-            functions/**
-            .github/**
-            .git/**
-            node_modules/**
-            *.log
-            README.md
-            FIREBASE_SETUP.md
-            FAMGATEWAY_SETUP.md
-            ROUTING_AND_SEO.md
-            GITHUB_HOSTING.md
-            database.rules.json
-            firebase.json
-            .firebaserc
+            .pages/functions/**
+            .pages/.github/**
+            .pages/node_modules/**
+            .pages/*.log
+            .pages/README.md
+            .pages/FIREBASE_SETUP.md
+            .pages/FAMGATEWAY_SETUP.md
+            .pages/ROUTING_AND_SEO.md
+            .pages/GITHUB_HOSTING.md
+            .pages/database.rules.json
+            .pages/firebase.json
+            .pages/.firebaserc
       - id: deployment
         uses: actions/deploy-pages@v4

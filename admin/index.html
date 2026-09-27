@@ -144,6 +144,10 @@
           </div>
           <div class="admin-action-btns">
             <input type="text" id="orderSearchInput" class="form-input" placeholder="Search order ID, name, phone..." style="max-width: 260px; padding: 0.4rem 0.75rem; font-size: 13px;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-text-muted); white-space: nowrap;">
+              <input type="checkbox" id="orderUnverifiedOnly" style="accent-color: var(--color-primary);">
+              Unverified payments only
+            </label>
             <select id="orderStatusFilter" class="form-select" style="max-width: 200px; padding: 0.4rem 0.75rem; font-size: 13px;">
               <option value="ALL">All Statuses</option>
               <option value="ACTIVE">Active (In-Flight)</option>

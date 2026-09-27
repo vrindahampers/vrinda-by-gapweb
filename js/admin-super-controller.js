@@ -145,8 +145,10 @@
     // Filters and Search
     const searchInput = document.getElementById('orderSearchInput');
     const statusFilter = document.getElementById('orderStatusFilter');
+    const unverifiedToggle = document.getElementById('orderUnverifiedOnly');
     searchInput?.addEventListener('input', () => renderOrdersTable());
     statusFilter?.addEventListener('change', () => renderOrdersTable());
+    unverifiedToggle?.addEventListener('change', () => renderOrdersTable());
 
     document.getElementById('btnRefreshStats')?.addEventListener('click', () => {
       renderStats();
@@ -225,8 +227,15 @@
 
     const query = (document.getElementById('orderSearchInput')?.value || '').toLowerCase().trim();
     const statusFilter = document.getElementById('orderStatusFilter')?.value || 'ALL';
+    const unverifiedOnly = !!document.getElementById('orderUnverifiedOnly')?.checked;
 
     let filtered = allOrders;
+
+    // Spark-plan workflow: the gateway cannot be verified from a browser, so the
+    // admin triages exactly those orders here and confirms each one in FamPay.
+    if (unverifiedOnly) {
+      filtered = filtered.filter(o => o.payment && o.payment.verified === false);
+    }
 
     if (statusFilter === 'ACTIVE') {
       filtered = filtered.filter(o => o.status !== 'Delivered' && o.status !== 'Cancelled');

@@ -6,36 +6,38 @@ no absolute `/...` links. So GitHub Pages works as-is at
 
 ---
 
-## ⚠️ Do this FIRST: get the merchant key out of the repo
+## ⚠️ Do this FIRST: the merchant key must not be committed
 
-`js/famgateway.js` currently contains your **live FamGateway merchant key**. A
-GitHub repository is readable by anyone, so pushing it as-is would publish a
-credential that can create and query real orders on your account. The deploy
-workflow **refuses to publish** while it finds one, and tells you what to do.
+You are staying on the **free (Spark) plan**, so there are no Cloud Functions and
+the browser has to hold the key to create payment sessions. Rather than committing
+it, the deploy workflow **injects it from a GitHub Actions secret into the
+published copy only** — the repository and its history stay key-free.
 
-Move the key to the server (this is also what fixes payment verification, because
-FamGateway's `verify-order.php` sends no CORS headers and no browser can call it):
+1. **GitHub → Settings → Secrets and variables → Actions → New repository secret**,
+   name `FAMGATEWAY_API_KEY`, value `<YOUR-FAMGATEWAY-MERCHANT-KEY>`
+2. Push. The workflow fails with a clear message if the secret is missing, and also
+   fails if a key was ever committed into `js/famgateway.js`.
+3. **Rotate the key once in the FamPay dashboard** and update the secret — the old
+   key exists in this repository's earlier commits, so treat it as burned.
 
-```bash
-cd /Users/ishikadaksh/Desktop/vrindahamp
-firebase login                                                  # one-time
-firebase functions:secrets:set FAMGATEWAY_API_KEY=fam_ea93a78892a4fe519445d40a71d24f80e1f792cb
-firebase deploy --only database,functions
-```
+For **local** testing, paste the key into `apiKey: ''` in `js/famgateway.js`
+temporarily and revert it before committing.
 
-Then in `js/famgateway.js`:
+### What "Spark" means day to day
 
-```js
-proxyCreateOrderUrl: 'https://us-central1-vrindahampers-db.cloudfunctions.net/createFamGatewayOrder',
-proxyVerifyOrderUrl: 'https://us-central1-vrindahampers-db.cloudfunctions.net/verifyFamGatewayOrder',
-webhookUrl:         'https://us-central1-vrindahampers-db.cloudfunctions.net/famgatewayWebhook', // optional
-apiKey: '',   // ← blank this out; the key now lives in Secret Manager
-```
+Checkout takes real payments, but FamGateway's verification endpoints send no CORS
+headers, so no browser can auto-confirm a capture. Every order is therefore created
+with `payment.verified: false` and reconciled by you:
 
-Fill **both** proxy URLs: `usesProxy()` only returns true when they are both set,
-and verification must go through the server. The `firebase deploy --only database`
-in the same command also publishes the pending security-rule fixes (admin Team
-tab, Custom Studio tab, FAQ writes, cancellation queue).
+- **Admin → Orders Management → tick "Unverified payments only"** to see exactly
+  the orders needing attention.
+- Match the amount / UTR in your **FamPay dashboard**.
+- Click **✓ Mark Paid** — the badge clears and the order is confirmed.
+
+Everything else (catalog, coupons, FAQs, settings, announcement bar, RBAC, custom
+studio, hosting) works fully on Spark. If you ever upgrade to Blaze, deploying the
+two functions in `functions/` makes verification automatic and the manual step
+disappears.
 
 ---
 
