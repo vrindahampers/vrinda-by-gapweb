@@ -6,6 +6,47 @@ no absolute `/...` links. So GitHub Pages works as-is at
 
 ---
 
+### Automatic payment verification (free — no Blaze plan)
+
+FamGateway's own API cannot be called from a browser (no CORS headers), which is
+why unverified orders needed a manual "✓ Mark Paid". Its **Webhook Endpoints**
+feature fixes that for free, because the POST comes from *their* server, not yours:
+
+```
+FamGateway (money captured)
+   └─ POST → your webhook receiver  →  PATCH /paymentSessions/<orderId> = paid
+                                            │
+customer's return page ──── polls Firebase ──┘   →  order created as VERIFIED
+```
+
+The receiver is `functions/famgateway-webhook-worker.js` — a **Cloudflare Worker**
+(free tier, no credit card, no Firebase Blaze). It verifies the
+`X-FamGateway-Signature` HMAC, and only ever patches a session that checkout
+already created, so a forged or replayed payload cannot invent an order.
+
+**Setup (~5 minutes):**
+
+1. <https://dash.cloudflare.com> → **Workers & Pages → Create** → name it
+   `famgateway-webhook` → Deploy the hello-world.
+2. **Edit code** → paste the whole contents of
+   `functions/famgateway-webhook-worker.js` → **Deploy**.
+3. **Settings → Variables and Secrets** → add two **encrypted secrets**:
+   | Name | Value |
+   | --- | --- |
+   | `FAMGATEWAY_API_KEY` | your FamGateway API key (`fam_…`) |
+   | `RTDB_AUTH_TOKEN` | Firebase console → Project settings → Service accounts → **Database secrets → Show** |
+4. Copy the worker URL, e.g. `https://famgateway-webhook.<you>.workers.dev`
+   (it answers `GET` with a small JSON health check).
+5. FamGateway → **Webhook Endpoints → Add New Webhook Endpoint**
+   - Endpoint Name: `vrindahampers store`
+   - Destination URL: the worker URL
+6. Make one test payment. The **Delivery Logs** table in FamGateway should show a
+   2xx, and the order appears in the admin portal already marked **verified** —
+   no clicking, no WhatsApp reconciliation.
+
+Until the webhook is live the flow still works; orders just arrive as
+"⚠️ Payment unverified" for manual confirmation.
+
 ## ⚠️ Do this FIRST: the merchant key must not be committed
 
 You are staying on the **free (Spark) plan**, so there are no Cloud Functions and

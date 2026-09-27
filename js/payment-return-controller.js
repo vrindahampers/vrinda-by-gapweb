@@ -15,6 +15,10 @@
 (function () {
   'use strict';
 
+  // Survives every initialisation of this page: a re-dispatched DOMContentLoaded
+  // or a bfcache restore must never run the flow twice and create two orders.
+  let started = false;
+
   document.addEventListener('DOMContentLoaded', () => {
     const UI = window.VrindaCommerceUI;
     const Store = window.VrindaStore;
@@ -30,6 +34,9 @@
     let pollHandle = null;
 
     window.VrindaAuth.whenReady(async (user) => {
+      if (started) return;
+      started = true;
+
       if (!user) {
         // Preserve the full return URL so the verification can resume after login.
         window.location.href = './login.html?redirect=' + encodeURIComponent(window.location.pathname + window.location.search);
@@ -143,13 +150,67 @@
     }
 
     /**
+     * Waits for the FamGateway webhook to confirm this payment.
+     *
+     * FamGateway POSTs to our receiver the moment money moves; the receiver
+     * PATCHes /paymentSessions/{orderId} with status "paid" and the bank
+     * references. That node is readable from the browser, so this tab can wait
+     * for the answer even though it can never call verify-order.php itself.
+     * This is what turns manual reconciliation into automatic verification.
+     *
+     * @returns {Promise<object|null>} the confirmed session, or null on timeout
+     */
+    async function waitForWebhookConfirmation(orderId) {
+      if (!orderId || !Orders || typeof Orders.findSession !== 'function') return null;
+
+      const maxAttempts = 15;          // ~60s with a 4s gap
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        let session = null;
+        try { session = await Orders.findSession(orderId); } catch (err) { session = null; }
+
+        if (session && (session.webhookCaptured === true ||
+            String(session.status || '').toLowerCase() === 'paid')) {
+          return session;
+        }
+
+        if (attempt === 0) {
+          UI.notice('returnNotice',
+            '<strong>Confirming your payment with FamGateway…</strong><br>' +
+            'This usually takes a few seconds. Please keep this tab open — your order is ' +
+            'created automatically the moment the bank confirmation arrives.',
+            'info');
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+      }
+      return null;
+    }
+
+    /**
      * The gateway is unreachable from the browser, so we cannot confirm the capture
-     * here. Try the public status endpoint once (it works whenever CORS allows it),
-     * and either way create the order with every reference attached, flagged for
-     * manual verification. Losing the order is far worse than an unverified one.
+     * here. Before falling back to a manual reconciliation we wait for the
+     * FamGateway WEBHOOK: the instant money moves, FamGateway POSTs to our endpoint
+     * and the receiver writes /paymentSessions/{orderId} = paid. That row is in
+     * Firebase, so this tab can see it - which makes verification automatic
+     * without any server the browser can reach.
      */
     async function createOrderUnverified(verification) {
       UI.setStep('verify', 'active');
+
+      const fromWebhook = await waitForWebhookConfirmation(returned.famgatewayOrderId);
+      if (fromWebhook) {
+        await createOrder({
+          success: true,
+          verified: true,
+          orderId: returned.famgatewayOrderId,
+          utr: fromWebhook.utr || verification.utr || '',
+          transactionId: fromWebhook.transactionId || verification.transactionId || '',
+          senderName: fromWebhook.senderName || '',
+          payableAmount: fromWebhook.payableAmount || returned.amount || 0,
+          verificationNote: 'Confirmed automatically by the FamGateway webhook.'
+        });
+        return;
+      }
 
       const publicStatus = await Gateway.pollStatusOnce(returned.famgatewayOrderId);
       if (publicStatus && publicStatus.status === 'success') {
