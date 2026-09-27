@@ -1,7 +1,5 @@
 # vrindahampers — crawler directives
-# Replace YOUR-DOMAIN below with your deployed origin, e.g.
-#   https://<username>.github.io/vrindahamp/
-# (keep the trailing slash).
+# Deployed origin: https://vrindahampers.qzz.io/ (custom domain, CNAME in repo root).
 
 User-agent: *
 Allow: /
@@ -20,4 +18,4 @@ Disallow: /pages/wishlist.html
 # Deep 404 fallback router should never be indexed.
 Disallow: /404.html
 
-Sitemap: https://YOUR-DOMAIN/sitemap.xml
+Sitemap: https://vrindahampers.qzz.io/sitemap.xml
