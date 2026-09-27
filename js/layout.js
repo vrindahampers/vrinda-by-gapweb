@@ -168,12 +168,14 @@
               <div class="footer-col">
                 <h4>Support & Info</h4>
                 <div class="footer-links">
-                  <a href="${basePath}#faq">How Personalization Works</a>
-                  <a href="${basePath}#faq">Shipping & Delivery Policies</a>
+                  <a href="${basePath}pages/contact.html">Contact Us</a>
+                  <a href="${basePath}policies.html">Privacy Policy</a>
+                  <a href="${basePath}policies.html#terms-of-service">Terms of Service</a>
+                  <a href="${basePath}policies.html#shipping-delivery">Shipping &amp; Delivery</a>
+                  <a href="${basePath}policies.html#returns-refunds">Returns &amp; Refunds</a>
+                  <a href="${basePath}policies.html#cancellation-policy">Cancellation Policy</a>
                   <a href="${basePath}pages/orders.html" class="auth-gate-trigger" data-gated="account" data-href="${basePath}pages/orders.html">My Orders</a>
                   <a href="${basePath}pages/order-tracking.html" class="auth-gate-trigger" data-gated="tracking" data-href="${basePath}pages/order-tracking.html">Track Your Order</a>
-                  <a href="${basePath}pages/orders.html" class="auth-gate-trigger" data-gated="account" data-href="${basePath}pages/orders.html">Cancellation Requests</a>
-                  <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer">WhatsApp Concierge</a>
                 </div>
               </div>
             </div>

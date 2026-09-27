@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Policies — vrindahampers</title>
+  <meta name="description" content="vrindahampers policies: privacy, terms of service, shipping and delivery, returns and refunds, cancellation and refunds.">
+  <meta name="theme-color" content="#c95d73">
+  <link rel="icon" type="image/svg+xml" href="./assets/icons/favicon.svg">
+  <link rel="manifest" href="./site.webmanifest">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./css/variables.css">
+  <link rel="stylesheet" href="./css/main.css">
+  <link rel="stylesheet" href="./css/components.css">
+</head>
+<body>
+  <div id="vrinda-header"></div>
+
+  <main class="section" style="padding-top: 2rem; padding-bottom: 5rem;">
+    <div class="container" style="max-width: 860px;">
+
+      <nav class="breadcrumb-nav" aria-label="Breadcrumb">
+        <a href="./index.html">Home</a> <span>/</span>
+        <span style="color: var(--color-text-main); font-weight: 600;">Policies</span>
+      </nav>
+
+      <div class="page-head">
+        <span class="section-tag">The Fine Print</span>
+        <h1>Our Policies</h1>
+        <p>Everything you need to know about how we handle your order, your data and your money. Written in plain language — no legalese for its own sake.</p>
+      </div>
+
+      <div id="policyList" style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2.5rem;">
+        <p class="page-loading"><span class="spinner"></span> Loading policies…</p>
+      </div>
+
+      <div id="policyBody" style="display: none;">
+        <button type="button" class="btn btn-outline btn-sm" id="policyBack"
+          style="margin-bottom: 1.5rem;">← All policies</button>
+
+        <article class="glass-panel" style="padding: clamp(1.5rem, 4vw, 2.5rem);">
+          <h2 id="policyTitle" style="font-size: clamp(1.5rem, 3vw, 2rem); margin-bottom: 0.35rem;"></h2>
+          <p id="policyUpdated" style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 1.5rem;"></p>
+          <div id="policyContent" style="line-height: 1.75;"></div>
+        </article>
+      </div>
+
+      <p id="policyMissing" style="display: none; color: var(--color-error);">
+        We could not find that policy. <a href="./policies.html">See all policies</a>.
+      </p>
+
+      <div class="glass-panel" style="padding: 1.5rem; margin-top: 2.5rem; text-align: center;">
+        <h3 style="font-size: 1.1rem; margin-bottom: 0.5rem;">Still have a question?</h3>
+        <p style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 1rem;">
+          We would rather answer a question than have you guess.
+        </p>
+        <a href="./pages/contact.html" class="btn btn-primary btn-sm">Contact us</a>
+      </div>
+
+    </div>
+  </main>
+
+  <div id="vrinda-footer"></div>
+
+  <script src="./js/policies-data.js"></script>
+  <script src="./js/layout.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      const P = window.VrindaPolicies;
+      const listEl = document.getElementById('policyList');
+      const bodyEl = document.getElementById('policyBody');
+      const missingEl = document.getElementById('policyMissing');
+      if (!P || !listEl) return;
+
+      /**
+       * This is a static site on GitHub Pages, so a "policy page" is a hash
+       * route on one file rather than six separate HTML files. No router is
+       * needed, and every policy is still a real, linkable, crawlable URL:
+       * /policies.html#privacy-policy
+       */
+      const esc = (s) => String(s === undefined || s === null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+      // The index is always rendered, so a visitor can always get back to it.
+      listEl.innerHTML = P.LIST.map((p) =>
+        '<a href="#' + esc(p.slug) + '" class="glass-panel" style="display:block; padding:1.25rem 1.5rem; text-decoration:none; color:inherit;">' +
+          '<h3 style="font-size:1.05rem; margin:0 0 0.35rem;">' + esc(p.title) + '</h3>' +
+          '<p style="font-size:14px; color: var(--color-text-muted); margin:0;">' + esc(p.summary) + '</p>' +
+        '</a>'
+      ).join('');
+
+      function renderFromHash() {
+        const slug = (window.location.hash || '').replace(/^#/, '');
+        if (!slug) {
+          bodyEl.style.display = 'none';
+          missingEl.style.display = 'none';
+          listEl.style.display = 'flex';
+          document.title = 'Policies — vrindahampers';
+          return;
+        }
+
+        const policy = P.get(slug);
+        if (!policy) {
+          bodyEl.style.display = 'none';
+          listEl.style.display = 'none';
+          missingEl.style.display = 'block';
+          return;
+        }
+
+        document.getElementById('policyTitle').textContent = policy.title;
+        document.getElementById('policyUpdated').textContent = 'Last updated ' + policy.updated;
+        // `body` is authored in this repository by the shop owner, not typed by
+        // a customer, so it is safe to render as HTML. Anything a user CAN type
+        // goes through the Site Content editor, which escapes it before saving.
+        document.getElementById('policyContent').innerHTML = policy.body;
+        bodyEl.style.display = 'block';
+        listEl.style.display = 'none';
+        missingEl.style.display = 'none';
+        document.title = policy.title + ' — vrindahampers';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      document.getElementById('policyBack').addEventListener('click', () => {
+        window.location.hash = '';
+      });
+      window.addEventListener('hashchange', renderFromHash);
+      renderFromHash();
+    })();
+  </script>
+</body>
+</html>
