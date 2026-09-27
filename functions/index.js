@@ -1,13 +1,20 @@
 /**
  * vrindahampers - Cloud Functions (Phase 7)
  * ============================================================================
- * Secure FamGateway proxies. The merchant API key lives ONLY here, as a
- * Secret Manager value — never in js/famgateway.js (see FAMGATEWAY_SETUP.md).
+ * Secure FamGateway proxies. These are REQUIRED for payment verification:
+ * FamGateway's /api/verify-order.php sends no CORS headers (measured: preflight
+ * 401, no access-control-allow-origin), so a browser that holds the merchant key
+ * can start a payment but can never confirm one. Everything the browser cannot
+ * safely do is done here instead.
  *
  *   createFamGatewayOrder  POST  — proxy for https://famgateway.in/api/create-order
  *   verifyFamGatewayOrder  GET   — proxy for https://famgateway.in/api/verify-order.php
  *   famgatewayWebhook      POST  — FamGateway instant-capture callback; re-verifies
  *                                  server-side, then marks /paymentSessions/{orderId}
+ *
+ * The merchant API key is read from Secret Manager (FAMGATEWAY_API_KEY). The
+ * browser may also hold a copy in js/famgateway.js (direct mode, the owner's
+ * choice) - it is used only to create sessions, never trusted for verification.
  *
  * Browser contract (must stay in sync with js/famgateway.js):
  *   - Authorization: Bearer <Firebase ID token> required on create + verify.

@@ -92,6 +92,9 @@
     "cancellationRequests": {
       // Customers submit cancellation requests for their own paid orders;
       // Super Admins & Staff review, approve or reject them.
+      // Parent-level read: the admin queue reads the WHOLE node, and a $requestId
+      // child rule can never grant a read of its parent (same trap as /users).
+      ".read": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff')",
       "$requestId": {
         ".read": "auth != null && (data.child('userId').val() === auth.uid || (root.child('admins').child(auth.uid).exists() || root.child('staff').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'staff'))",
         ".write": "auth != null && ((root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin') || (!data.exists() && root.child('userOrders').child(auth.uid).child(newData.child('orderId').val()).exists()))"

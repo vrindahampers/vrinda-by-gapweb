@@ -65,6 +65,11 @@ firebase login                    # once, per machine
 firebase deploy --only database
 ```
 
+> **If you see `zsh: bad CPU type in executable: firebase`:** the standalone
+> binary from the Firebase website is an x86_64 build and will not run on Apple
+> Silicon. `npm install -g firebase-tools` (above) installs the correct build —
+> verify with `firebase --version` (should print 13.x or 15.x).
+
 Expected tail of a successful deploy:
 
 ```

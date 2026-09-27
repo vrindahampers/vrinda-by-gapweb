@@ -56,9 +56,22 @@
     merchantUpiId: 'ishikavh@fam',                           // your FamPay UPI id, e.g. yourname@fam
     merchantName: 'vrindahampers',
 
-    /* --- OPTIONAL Cloud Function proxies (/functions) — leave blank to call
-       FamGateway directly from the browser with the key above. Fill BOTH URLs
-       to route through your server instead (see FAMGATEWAY_SETUP.md). --- */
+    /* --- OPTIONAL Cloud Function proxies (/functions) — REQUIRED for payment
+       VERIFICATION. FamGateway's verify-order.php sends no CORS headers, so a
+       browser can create a payment but never confirm one (measured: preflight 401,
+       no access-control-allow-origin). Deploy them with:
+
+         firebase functions:secrets:set FAMGATEWAY_API_KEY=fam_ea93a78892a4fe519445d40a71d24f80e1f792cb
+         firebase deploy --only database,functions
+
+       then fill the two URLs below (deterministic for this project):
+
+         https://us-central1-vrindahampers-db.cloudfunctions.net/createFamGatewayOrder
+         https://us-central1-vrindahampers-db.cloudfunctions.net/verifyFamGatewayOrder
+         https://us-central1-vrindahampers-db.cloudfunctions.net/famgatewayWebhook  (optional)
+
+       Until then, captured payments are still booked - flagged "Payment
+       unverified" in the admin portal for manual confirmation from FamPay. --- */
     proxyCreateOrderUrl: '',
     proxyVerifyOrderUrl: '',
     webhookUrl: '',
