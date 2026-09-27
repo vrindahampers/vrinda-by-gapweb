@@ -17,7 +17,11 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    window.VrindaAuth.onAuthChange((user, profile) => {
+    // Use whenReady (not onAuthChange) for the login redirect: onAuthChange's
+    // first synchronous callback always reports "no user" while the Firebase
+    // session is still restoring, which bounced logged-in customers straight
+    // back to login.html and caused an endless refresh loop between the two pages.
+    window.VrindaAuth.whenReady((user, profile) => {
       if (!user) {
         window.location.href = './login.html?redirect=' + encodeURIComponent(window.location.href);
         return;
