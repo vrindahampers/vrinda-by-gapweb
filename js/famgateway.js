@@ -10,19 +10,23 @@
  *     (FamGateway documents this endpoint as public-safe: "zero API key leak")
  *   - the full order-creation hand-off to js/order-service.js
  *
- * NEEDS YOUR REAL CREDENTIALS / ENDPOINTS (see TODOs in VRINDA_FAMGATEWAY_CONFIG):
- *   1. FamGateway merchant API key (fg_live_...) — secret, server-side only.
- *   2. Deployed Cloud Function URLs from /functions (create-order + verify-order proxies).
- *   3. Public webhook URL for instant payment capture.
- * Until 1-3 are filled in, the adapter runs in SIMULATION MODE: it mints a
- * local `fg_SIM_*` session and routes straight to pages/payment-return.html so the
- * whole Checkout -> Payment -> Order -> Admin notification flow stays testable.
+ * GOING LIVE (owner's decision — the key stays in this file):
+ *   1. Paste your FamGateway merchant API key into
+ *      VRINDA_FAMGATEWAY_CONFIG.apiKey below. That single value flips the
+ *      adapter out of SIMULATION MODE — nothing else needs deploying.
+ *   2. While unconfigured, the adapter mints a local `fg_SIM_*` session and
+ *      routes straight to pages/payment-return.html so the whole
+ *      Checkout -> Payment -> Order -> Admin notification flow stays testable.
  *
- * SECURITY NOTE (do not skip): FamGateway's own docs state "Never expose your
- * secret API key in client-side JavaScript." POST /api/create-order and
- * GET /api/verify-order.php therefore MUST be called from the Cloud Function
- * proxy, never from a static GitHub Pages bundle. The optional direct-call path
- * below is disabled by default and exists only for a throwaway local sandbox.
+ * OPTIONAL HARDENING: deploy the Cloud Functions in /functions and fill the
+ * two proxy URLs — create/verify then run on your server and the key in this
+ * file is no longer sent from the browser. Not required; FAMGATEWAY_SETUP.md.
+ *
+ * HONEST RISK NOTE: everything in this file is readable by anyone who views
+ * the page source, so the API key below is public too. That is the accepted
+ * trade-off of keeping the key here instead of on a server (FamGateway's docs
+ * recommend the server route). Rotate the key in the FamGateway dashboard if
+ * you ever stop wanting it public.
  * ============================================================================
  */
 
@@ -45,20 +49,19 @@
     qrImagePath: '/api/qr-image.php',
     receiptPath: '/transaction-details.php',
 
-    /* --- FamGateway merchant API key: NOT kept in client code anymore. ---
-       Set it as a Cloud Function secret instead:
-       firebase functions:secrets:set FAMGATEWAY_API_KEY   (see FAMGATEWAY_SETUP.md) */
-    apiKey: '',                                   // intentionally empty — server-side secret only
+    /* --- FamGateway merchant API key — kept in THIS file on purpose (your
+       call): paste it here and payments go live with nothing else to deploy.
+       It is visible in page source; see the risk note in the header. --- */
+    apiKey: 'fam_ea93a78892a4fe519445d40a71d24f80e1f792cb',
     merchantUpiId: 'ishikavh@fam',                           // your FamPay UPI id, e.g. yourname@fam
     merchantName: 'vrindahampers',
 
-    /* --- TODO: deployed Cloud Function proxy URLs (see /functions/index.js) --- */
-    proxyCreateOrderUrl: '',                     // TODO: https://<region>-<project>.cloudfunctions.net/famgatewayCreateOrder
-    proxyVerifyOrderUrl: '',                     // TODO: https://<region>-<project>.cloudfunctions.net/famgatewayVerifyOrder
-    webhookUrl: '',                              // TODO: https://<region>-<project>.cloudfunctions.net/famgatewayWebhook
-
-    /* --- Local sandbox escape hatch (never enable on the live site) --- */
-    allowInsecureDirectMode: false,              // TODO: keep false in production
+    /* --- OPTIONAL Cloud Function proxies (/functions) — leave blank to call
+       FamGateway directly from the browser with the key above. Fill BOTH URLs
+       to route through your server instead (see FAMGATEWAY_SETUP.md). --- */
+    proxyCreateOrderUrl: '',
+    proxyVerifyOrderUrl: '',
+    webhookUrl: '',
 
     /* --- Timing / behaviour --- */
     pollIntervalMs: 4000,
@@ -79,8 +82,19 @@
 
   /* --------------------------------------------------------- config state */
 
-  Gateway.isConfigured = function () {
+  /** True when both Cloud Function proxy URLs are filled (preferred route). */
+  Gateway.usesProxy = function () {
     return !isPlaceholder(cfg.proxyCreateOrderUrl) && !isPlaceholder(cfg.proxyVerifyOrderUrl);
+  };
+
+  /** True when the merchant key sits in this file (direct browser mode). */
+  Gateway.hasApiKey = function () {
+    return !isPlaceholder(cfg.apiKey);
+  };
+
+  /** Live as soon as EITHER the proxy URLs OR the key in this file exist. */
+  Gateway.isConfigured = function () {
+    return this.usesProxy() || this.hasApiKey();
   };
 
   Gateway.isSimulationMode = function () {
@@ -96,16 +110,17 @@
       webhook: !isPlaceholder(cfg.webhookUrl),
       apiKeyPresent: !isPlaceholder(cfg.apiKey),
       merchantUpiIdPresent: !isPlaceholder(cfg.merchantUpiId),
-      directModeEnabled: !!cfg.allowInsecureDirectMode
+      directModeEnabled: !this.usesProxy() && this.hasApiKey()
     };
   };
 
   Gateway.missingConfig = function () {
-    const state = this.describeConfig();
     const missing = [];
-    if (!state.proxyCreateOrder) missing.push('proxyCreateOrderUrl (Cloud Function createFamGatewayOrder in /functions)');
-    if (!state.proxyVerifyOrder) missing.push('proxyVerifyOrderUrl (Cloud Function verifyFamGatewayOrder in /functions)');
-    if (!state.webhook) missing.push('webhookUrl (FamGateway -> famgatewayWebhook, for instant capture)');
+    if (this.isSimulationMode()) {
+      missing.push('apiKey — paste your FamGateway merchant key into VRINDA_FAMGATEWAY_CONFIG.apiKey in js/famgateway.js');
+    } else if (isPlaceholder(cfg.webhookUrl)) {
+      missing.push('webhookUrl — optional: deploy /functions for instant capture (status polling works without it)');
+    }
     return missing;
   };
 
@@ -165,21 +180,20 @@
     };
     if (!isPlaceholder(cfg.webhookUrl)) payload.webhook_url = cfg.webhookUrl;
 
-    if (this.isConfigured()) {
+    if (this.usesProxy()) {
       return this._createViaProxy(payload);
     }
-    if (cfg.allowInsecureDirectMode && !isPlaceholder(cfg.apiKey)) {
-      console.warn('FamGateway: INSECURE direct mode is enabled. Never ship this to production.');
+    if (this.hasApiKey()) {
       return this._createDirect(payload);
     }
     return this._createSimulated(amount);
   };
 
   /**
-   * PRODUCTION PATH — calls your Cloud Function, which holds the secret API key
-   * and talks to https://famgateway.in/api/create-order on your behalf.
-   * TODO: deploy /functions (see FAMGATEWAY_SETUP.md) and paste its URL into
-   *       VRINDA_FAMGATEWAY_CONFIG.proxyCreateOrderUrl.
+   * PROXY PATH (optional) — calls your Cloud Function, which holds the key and
+   * talks to https://famgateway.in/api/create-order on your behalf. Active as
+   * soon as proxyCreateOrderUrl + proxyVerifyOrderUrl are both filled in
+   * VRINDA_FAMGATEWAY_CONFIG (see FAMGATEWAY_SETUP.md).
    */
   Gateway._createViaProxy = async function (payload) {
     try {
@@ -208,8 +222,9 @@
   };
 
   /**
-   * LOCAL SANDBOX ONLY — direct browser call to POST /api/create-order.
-   * This leaks your merchant API key to anyone using devtools. TODO: remove.
+   * DIRECT MODE (your chosen setup) — browser call to POST /api/create-order
+   * with the key from VRINDA_FAMGATEWAY_CONFIG.apiKey. Used whenever the proxy
+   * URLs are blank. Anyone reading page source can see the key.
    */
   Gateway._createDirect = async function (payload) {
     try {
@@ -345,10 +360,10 @@
   /* --------------------------------------- STEP 4: authoritative verification */
 
   /**
-   * Server-to-server verification (FamGateway: GET /api/verify-order.php returns
-   * the customer UTR and is the authoritative source of truth).
-   * TODO: this needs the merchant API key, so it must run in the Cloud Function
-   *       proxy — never in the browser. Simulation mode short-circuits it.
+   * Authoritative verification (FamGateway: GET /api/verify-order.php returns
+   * the customer UTR and is the source of truth). Uses the Cloud Function
+   * proxy when configured, otherwise calls FamGateway directly with the key
+   * from this file. fg_SIM_* ids short-circuit without any network call.
    */
   Gateway.verifyOrder = async function (famgatewayOrderId) {
     const orderId = famgatewayOrderId;
@@ -375,19 +390,9 @@
       };
     }
 
-    if (!this.isConfigured() && !(cfg.allowInsecureDirectMode && !isPlaceholder(cfg.apiKey))) {
-      return {
-        success: false,
-        verified: false,
-        status: 'unconfigured',
-        error: 'FamGateway verification is not configured yet.',
-        missing: this.missingConfig()
-      };
-    }
-
     try {
       let json;
-      if (this.isConfigured()) {
+      if (this.usesProxy()) {
         const token = await this.idToken();
         const response = await fetch(cfg.proxyVerifyOrderUrl + '?order_id=' + encodeURIComponent(orderId), {
           method: 'GET',
@@ -401,7 +406,7 @@
           return { success: false, verified: false, status: 'error', error: json.message || ('Verification failed (HTTP ' + response.status + ').') };
         }
       } else {
-        // SANDBOX ONLY: leaks the API key. TODO: remove before going live.
+        // DIRECT MODE — key from this file (your chosen setup).
         const response = await fetch(cfg.baseUrl + cfg.verifyPath + '?order_id=' + encodeURIComponent(orderId), {
           method: 'GET',
           headers: { Accept: 'application/json', 'X-Api-Key': cfg.apiKey }

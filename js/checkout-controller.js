@@ -104,8 +104,8 @@
         banner.innerHTML =
           '<strong>🧪 Payment simulation mode</strong>' +
           '<span>FamGateway credentials are not configured yet, so this checkout will simulate a successful ' +
-          'UPI payment and still create a real order in your database. Add your merchant key + Cloud Function ' +
-          'URLs in <code>js/famgateway.js</code> to go live.</span>' +
+          'UPI payment and still create a real order in your database. Paste your merchant key into ' +
+          '<code>js/famgateway.js</code> (VRINDA_FAMGATEWAY_CONFIG.apiKey) to go live.</span>' +
           '<ul>' + Gateway.missingConfig().map((m) => '<li>' + UI.escapeHtml(m) + '</li>').join('') + '</ul>';
         if (note) note.textContent = 'Simulation mode: no real money moves and no FamGateway page opens.';
       } else {
