@@ -153,6 +153,9 @@
 
     // Fresh admin read: always re-reads /products from RTDB so the catalog
     // table reflects add/edit/delete immediately (never a stale cache).
+    // When the node is missing or empty the stale in-memory rows are dropped
+    // too — otherwise a deleted catalog keeps rendering from this.productsCache
+    // and "delete does nothing" from the admin's point of view.
     getAllProducts: async function () {
       if (typeof firebase !== 'undefined' && firebase.database) {
         try {
@@ -164,11 +167,14 @@
             // Admin view: deliberately unfiltered, so hidden products stay editable.
             return list;
           }
+          this.productsCache = [];
+          return [];
         } catch (e) {
-          console.warn('Firebase RTDB products (fresh) read warning; using local data:', e.message);
+          console.warn('Firebase RTDB products (fresh) read warning:', e.message);
         }
       }
-      return this.getProducts();
+      if (!this.productsCache) this.productsCache = [];
+      return this.productsCache;
     },
 
     // Fetch single product by ID or slug

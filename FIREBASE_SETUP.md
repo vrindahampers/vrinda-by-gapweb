@@ -181,11 +181,10 @@ Two more one-time notes for a brand-new project:
 
 - The first Super Admin still has to be bootstrapped in the Firebase console
   (`users/<uid>/role = "superadmin"`), because no client is allowed to write its own role.
-- If `/products` and `/categories` are empty, open **Admin → Product Catalog** and press
-  **⬇ Import sample catalog** (or just load any page while signed in as Super Admin — the
-  seeder then fills the empty nodes from `assets/data/sample-data.js`). It never overwrites
-  rows that already exist, so it is safe to re-run. After that the storefront reads products
-  from Firebase; the JSON file is only an offline safety net.
+- `/products` and `/categories` start empty on purpose — there is no bundled catalog left to
+  import (`assets/data/sample-data.js` now ships empty `products` and `coupons` arrays) and no
+  seeder refills them. Add products through **Admin → Product Catalog → Add New Product** or
+  **Bulk Product Maker**, and discount codes through **Admin → Discount Coupons**.
 
 ### What the Super Admin portal writes where
 
@@ -198,6 +197,26 @@ Two more one-time notes for a brand-new project:
 | SEO meta tags | `seo` | homepage `<title>` + `<meta name="description">` |
 | FAQ & Content | `faqs/$id` | homepage FAQ section (live, no reload needed) |
 | Custom Studio requests | `customRequests/$uid/$requestId` (written by the customer) | status + quote back into the portal |
+
+**Coupon rows.** `coupons/$CODE` is the only coupon source — no codes are bundled with the
+site, so a code that is not in the database simply does not exist for the cart. Create them in
+**Admin → Discount Coupons**; the form writes this exact shape:
+
+| Field | Meaning |
+| --- | --- |
+| `type` | `percent`, `flat` or `shipping` — any other value is refused at checkout |
+| `value` | number: % for `percent`, ₹ for `flat`, unused by `shipping` |
+| `minOrder` | minimum cart subtotal that unlocks the code |
+| `maxDiscount` | `percent` only — caps the calculated discount |
+| `firstOrderOnly` | rejected once the customer already has a row in `/userOrders/$uid` |
+| `active` | untick **Active** to switch a code off without deleting it: the cart hides it and checkout rejects it. A row with no `active` field at all counts as live |
+| `label` / `description` | customer-facing text; the cart shows `label` and falls back to `description` |
+
+`database.rules.json` requires `type` and `value` on every coupon write (and type-checks the
+optional fields), so a stray `value: "10%"` — which the storefront would read as ₹0 — is
+rejected at write time instead of quietly changing what a customer pays. Deletes are exempt
+from `.validate`, so removing a coupon is never blocked; a row written by hand in the console
+must satisfy this shape before the admin form can save over it.
 
 Product visibility: unticking **“Live on the storefront”** keeps a product in the admin
 catalog (where you can still edit it) but hides it from every customer-facing read.
@@ -221,7 +240,8 @@ Saving Store Settings reports the real outcome — a denied write now says so (a
 | --- | --- |
 | `users/$uid` | Owner read/write; Admins read all; role field only writable by Admins |
 | `admins`, `staff`, `deliveryManagers` | Staff registries; only Super Admins write |
-| `products`, `categories` | Public read; Admin-only write (catalog auto-seeds from `sample-data.js` when empty) |
+| `products`, `categories` | Public read; Admin-only write (nothing seeds them — the catalog is added through the portal and the bundled arrays ship empty) |
+| `coupons/$CODE` | Public read (the cart and checkout validate codes client-side); Admin-only write, and each row must carry `type` = `percent` \| `flat` \| `shipping` with a numeric `value` (optional `minOrder`, `maxDiscount`, `firstOrderOnly`, `active`, `label`, `description`) |
 | `reviews/$productId/$reviewId` | Public read; a verified shopper may only create/edit/delete their **own** review row (`userId == auth.uid`); Staff & Super Admins can moderate any review |
 | `cart/$uid`, `wishlist/$uid` | Owner-only read/write (Phase 4) |
 | `orders/$orderId` | Read: the order owner, Admins, Staff & Delivery Managers. Write: Admins/Staff/Delivery Managers, plus a customer creating a brand-new order stamped with their own `userId`. A customer may only additionally set the `cancellationStatus` / `cancellationRequestId` markers on their own order (Phase 4/5/6) |

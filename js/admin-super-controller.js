@@ -757,23 +757,24 @@
     if (!tbody) return;
 
     if (!allCoupons.length) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem;">No coupons configured.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem;">No coupons configured. Use ➕ Create Coupon to publish one — the cart only offers codes that exist in Firebase.</td></tr>`;
       return;
     }
 
     tbody.innerHTML = allCoupons.map(c => `
       <tr>
-        <td><strong>${c.code}</strong></td>
-        <td><span class="badge badge-accent">${(c.type || '').toUpperCase()}</span></td>
+        <td><strong>${escapeText(c.code)}</strong></td>
+        <td><span class="badge badge-accent">${escapeText((c.type || '').toUpperCase())}</span></td>
         <td>${c.type === 'percent' ? `${c.value}% OFF${c.maxDiscount ? ` (max ₹${c.maxDiscount})` : ''}` : c.type === 'flat' ? `₹${c.value} OFF` : 'Free Delivery'}</td>
         <td>${c.minOrder ? `₹${c.minOrder}` : 'No Min'}</td>
-        <td>${c.description || '—'}</td>
+        <td>${c.active === false ? '<span class="badge badge-subtle">Disabled</span>' : '<span class="badge badge-success">Active</span>'}</td>
+        <td>${escapeText(c.description) || '—'}${c.firstOrderOnly ? ' <span class="badge badge-accent" style="font-size: 10px;">First order only</span>' : ''}</td>
         <td>
           <div class="admin-action-btns">
-            <button class="btn btn-xs btn-outline js-edit-coupon" data-code="${c.code}">
+            <button class="btn btn-xs btn-outline js-edit-coupon" data-code="${escapeText(c.code)}">
               Edit
             </button>
-            <button class="btn btn-xs btn-glass js-delete-coupon" data-code="${c.code}" style="color: var(--color-error);">
+            <button class="btn btn-xs btn-glass js-delete-coupon" data-code="${escapeText(c.code)}" style="color: var(--color-error);">
               Delete
             </button>
           </div>
@@ -1220,12 +1221,18 @@
         ? (allCoupons.find(c => c.code === originalCode) || {})
         : {};
 
+      const activeFlag = document.getElementById('couponFormActive');
       const couponPayload = Object.assign({}, existing, {
         code: document.getElementById('couponFormCode').value.trim().toUpperCase(),
         type: document.getElementById('couponFormType').value,
         value: Number(document.getElementById('couponFormValue').value) || 0,
         minOrder: Number(document.getElementById('couponFormMin').value) || 0,
-        description: document.getElementById('couponFormDesc').value.trim()
+        description: document.getElementById('couponFormDesc').value.trim(),
+        // Always written, never left to the database default, because "the field is
+        // missing" and "the field is true" must never be able to disagree:
+        // store-service.js rejects on `active === false` and cart-controller.js
+        // drops those rows from the offer chips.
+        active: activeFlag ? activeFlag.checked : true
       });
 
       const maxEl = document.getElementById('couponFormMax');
@@ -1234,6 +1241,12 @@
         if (maxVal > 0) couponPayload.maxDiscount = maxVal;
         else delete couponPayload.maxDiscount;
       }
+
+      // Optional flag: stored only when ticked, mirroring the maxDiscount pattern
+      // above, so a normal coupon row stays as small as it was before.
+      const firstOrderEl = document.getElementById('couponFormFirstOrder');
+      if (firstOrderEl && firstOrderEl.checked) couponPayload.firstOrderOnly = true;
+      else delete couponPayload.firstOrderOnly;
 
       if (!couponPayload.code) {
         alert('Please specify a coupon code.');
@@ -1254,7 +1267,10 @@
         }
       }
 
-      alert(originalCode ? 'Coupon updated successfully!' : 'Coupon created successfully!');
+      const createdMessage = originalCode ? 'Coupon updated successfully!' : 'Coupon created successfully!';
+      alert(couponPayload.active === false
+        ? createdMessage + '\n\nNote: this code is switched off, so shoppers cannot apply it yet.'
+        : createdMessage);
       document.getElementById('modalCouponForm').style.display = 'none';
       editingCouponCode = null;
     });
@@ -1439,6 +1455,12 @@
       document.getElementById('couponFormDesc').value = coupon.description || '';
       const maxEl = document.getElementById('couponFormMax');
       if (maxEl) maxEl.value = coupon.maxDiscount || '';
+      // A row written before the toggle existed has no `active` field at all, and
+      // the storefront treats that as live — so only an explicit false untick it.
+      const activeEl = document.getElementById('couponFormActive');
+      if (activeEl) activeEl.checked = coupon.active !== false;
+      const firstOrderEl = document.getElementById('couponFormFirstOrder');
+      if (firstOrderEl) firstOrderEl.checked = coupon.firstOrderOnly === true;
     } else {
       editingCouponCode = null;
       if (title) title.textContent = 'Create Discount Coupon';
@@ -1448,6 +1470,10 @@
       document.getElementById('couponFormDesc').value = '';
       const maxEl = document.getElementById('couponFormMax');
       if (maxEl) maxEl.value = '';
+      const activeEl = document.getElementById('couponFormActive');
+      if (activeEl) activeEl.checked = true;
+      const firstOrderEl = document.getElementById('couponFormFirstOrder');
+      if (firstOrderEl) firstOrderEl.checked = false;
     }
 
     if (modal) modal.style.display = 'flex';

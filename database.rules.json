@@ -168,7 +168,23 @@
     "coupons": {
       // Coupons are publicly readable for checkout validation; only Admins write
       ".read": true,
-      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')"
+      ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'superadmin' || root.child('users').child(auth.uid).child('role').val() === 'manager' || root.child('users').child(auth.uid).child('role').val() === 'owner')",
+      // Shape check, so a typo cannot quietly change what a customer pays.
+      // store-service.js only understands type 'percent' | 'flat' | 'shipping'
+      // (anything else is refused at checkout) and reads value/minOrder/maxDiscount
+      // as numbers - a string value such as "10%" is coerced to 0, which would turn
+      // a 10% discount into a silent ₹0. cart-controller.js additionally lists every
+      // row whose active is not false as an offer chip.
+      //
+      // Only type and value are required (the Super Admin form always writes both,
+      // along with code and minOrder). Every other field is optional and is checked
+      // only when present, so active / maxDiscount / firstOrderOnly can be omitted.
+      // Deletes are exempt from .validate in RTDB, so removing a coupon is never
+      // blocked here - and a legacy row written straight in the console may need its
+      // type/value corrected before the form can save it again.
+      "$CODE": {
+        ".validate": "(newData.child('type').val() === 'percent' || newData.child('type').val() === 'flat' || newData.child('type').val() === 'shipping') && newData.child('value').isNumber() && (!newData.child('code').exists() || newData.child('code').isString()) && (!newData.child('minOrder').exists() || newData.child('minOrder').isNumber()) && (!newData.child('maxDiscount').exists() || newData.child('maxDiscount').isNumber()) && (!newData.child('firstOrderOnly').exists() || newData.child('firstOrderOnly').isBoolean()) && (!newData.child('active').exists() || newData.child('active').isBoolean()) && (!newData.child('label').exists() || newData.child('label').isString()) && (!newData.child('description').exists() || newData.child('description').isString())"
+      }
     },
     "banners": {
       // Promotional banners managed by Super Admin

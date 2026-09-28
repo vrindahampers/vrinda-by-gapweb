@@ -543,12 +543,13 @@
                   <th>Discount Type</th>
                   <th>Value</th>
                   <th>Min Order</th>
+                  <th>Status</th>
                   <th>Description</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="couponsTbody">
-                <tr><td colspan="6" style="text-align: center; padding: 2rem;">Loading coupons...</td></tr>
+                <tr><td colspan="7" style="text-align: center; padding: 2rem;">Loading coupons...</td></tr>
               </tbody>
             </table>
           </div>
@@ -902,6 +903,20 @@
         <label class="form-label">Description</label>
         <input type="text" id="couponFormDesc" class="form-input" placeholder="Flat 15% off on first order">
       </div>
+
+      <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+          <input type="checkbox" id="couponFormActive" checked> Active (offered in the cart, accepted at checkout)
+        </label>
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+          <input type="checkbox" id="couponFormFirstOrder"> First order only
+        </label>
+      </div>
+      <p style="font-size: 11px; color: var(--color-text-muted); margin: 6px 0 0;">
+        Switching <strong>Active</strong> off keeps the code here but removes it from the cart's offer
+        chips and rejects it at checkout — the same effect as <em>active: false</em> in the database.
+        <strong>First order only</strong> is refused once the customer already has an order.
+      </p>
 
       <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 1rem;">
         <button class="btn btn-sm btn-glass" onclick="document.getElementById('modalCouponForm').style.display='none'">Cancel</button>

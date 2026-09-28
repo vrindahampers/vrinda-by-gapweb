@@ -134,48 +134,37 @@ window.VRINDA_DATA = {
     advanceBookingDays: 45
   },
 
-  /* Coupon engine seeds. Admins can also publish coupons in RTDB at /coupons/<CODE>. */
-  coupons: [
-    {
-      code: 'VRINDA10',
-      label: '10% off sitewide',
-      type: 'percent',
-      value: 10,
-      minOrder: 1499,
-      maxDiscount: 400,
-      active: true,
-      description: 'Get 10% off on orders above ₹1,499 (maximum ₹400 off).'
-    },
-    {
-      code: 'LOVE200',
-      label: 'Flat ₹200 off',
-      type: 'flat',
-      value: 200,
-      minOrder: 1999,
-      active: true,
-      description: 'Flat ₹200 off on orders above ₹1,999.'
-    },
-    {
-      code: 'FIRSTGIFT',
-      label: '15% off your first gift',
-      type: 'percent',
-      value: 15,
-      minOrder: 999,
-      maxDiscount: 300,
-      firstOrderOnly: true,
-      active: true,
-      description: '15% off (maximum ₹300) on your first vrindahampers order above ₹999.'
-    },
-    {
-      code: 'FREESHIP',
-      label: 'Free standard delivery',
-      type: 'shipping',
-      value: 0,
-      minOrder: 499,
-      active: true,
-      description: 'Free standard delivery on orders above ₹499.'
-    }
-  ],
+  /* -------------------------------------------------------------------
+   * COUPONS ARE NOT DEFINED HERE EITHER.
+   *
+   * Firebase /coupons/<CODE> is the ONLY coupon source — the same rule the
+   * product catalog follows further down this file. admin-super-controller.js
+   * writes the rows, store-service.js validates them, cart-controller.js lists
+   * them as offer chips. Nothing has read VRINDA_DATA.coupons since that rule
+   * was adopted, so the four rows that used to sit here were dead weight: they
+   * implied that a coupon deleted from the database would come straight back
+   * from the bundle. It never would have, but the confusion was real.
+   *
+   * Create codes in Admin -> Discount Coupons, which writes this exact shape:
+   *   code            UPPERCASE key and field, e.g. 'VRINDA10'
+   *   type            'percent' | 'flat' | 'shipping'. Anything else is refused
+   *                   at checkout ("This coupon type is not supported...").
+   *   value           number — % for 'percent', ₹ for 'flat', ignored by
+   *                   'shipping'
+   *   minOrder        number — cart subtotal required to unlock the code
+   *   maxDiscount     number, percent only — caps the calculated discount
+   *   firstOrderOnly  boolean — rejected once /userOrders/<uid> exists
+   *   active          boolean — false switches the code off; a missing field
+   *                   counts as active, which is why the admin form writes it
+   *   label           short summary ("10% off sitewide"); the cart falls back
+   *                   to description when it is absent
+   *   description     customer-facing line, reused as the success toast
+   *
+   * database.rules.json enforces the parts of this shape that would otherwise
+   * break pricing silently, and the array stays an empty list so an empty
+   * coupon node is a normal, supported state rather than a crash.
+   * ------------------------------------------------------------------- */
+  coupons: [],
 
   /* Preferred delivery time slots offered at checkout */
   deliverySlots: [

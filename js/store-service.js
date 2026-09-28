@@ -4,7 +4,7 @@
  * The single source of truth for the RTDB-backed cart, wishlist and money math.
  *  - Cart        -> /cart/{uid}       (items + applied coupon, live synced)
  *  - Wishlist    -> /wishlist/{uid}   (items, live synced)
- *  - Coupons     -> /coupons/{CODE}   (admin managed, seeded from VRINDA_DATA.coupons)
+ *  - Coupons     -> /coupons/{CODE}   (admin managed; the only coupon source)
  *
  * Guests who click "Add to Cart" before logging in are not punished: the action is
  * stashed in localStorage and flushed into their RTDB cart the moment they log in,
@@ -433,17 +433,27 @@
 
   /* --------------------------------------------------------- coupon engine */
 
+  /**
+   * Firebase /coupons is the ONLY source for coupons. There used to be a
+   * fallback to the four hardcoded rows in sample-data.js, which meant that
+   * deleting every coupon from the database changed nothing in the admin
+   * table — the listener handed the sample rows back and they re-rendered as
+   * if nothing had been deleted. Keeping a bundled seed also risks handing a
+   * discount to the checkout when the admin believes the code is gone.
+   */
   Store._catalogCoupons = function () {
-    return (window.VRINDA_DATA && window.VRINDA_DATA.coupons) || [];
+    return [];
   };
 
   /**
-   * Real-time subscription to all coupons (Admin)
+   * Real-time subscription to all coupons (Admin). An empty /coupons node is
+   * a deliberate "no coupons" state and is delivered as an empty list — never
+   * papered over with sample codes.
    */
   Store.listenToCoupons = function (callback) {
     const db = this._db();
     if (!db || typeof callback !== 'function') {
-      if (typeof callback === 'function') callback(this._catalogCoupons());
+      if (typeof callback === 'function') callback([]);
       return () => {};
     }
 
@@ -454,7 +464,7 @@
         const list = Object.keys(val).map(k => Object.assign({ code: k }, val[k]));
         callback(list);
       } else {
-        callback(this._catalogCoupons());
+        callback([]);
       }
     };
     ref.on('value', handler);
@@ -503,12 +513,11 @@
         const snap = await db.ref('coupons/' + normalised).once('value');
         if (snap.exists()) return Object.assign({ code: normalised }, snap.val());
       } catch (err) {
-        console.warn('Coupon lookup fell back to local seeds:', err.message);
+        console.warn('Coupon lookup failed:', err.message);
       }
     }
 
-    const local = this._catalogCoupons().find((c) => String(c.code).toUpperCase() === normalised);
-    return local ? Object.assign({}, local) : null;
+    return null;
   };
 
   Store._hasPreviousOrders = async function () {
@@ -534,8 +543,12 @@
     if (!coupon) {
       return { valid: false, message: 'That coupon code is not recognised. Please check the spelling.' };
     }
+    // `active: false` is the single "do not honour this code" flag: it is what the
+    // Super Admin "Active" toggle writes and what cart-controller.js filters the
+    // offer chips on. It covers a lapsed code and one switched off on purpose, so
+    // the wording stays neutral about which happened.
     if (coupon.active === false) {
-      return { valid: false, message: 'This coupon has expired.' };
+      return { valid: false, message: 'This coupon code is no longer available.' };
     }
 
     const subtotal = this.getSubtotal();

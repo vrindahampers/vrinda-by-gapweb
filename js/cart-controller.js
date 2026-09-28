@@ -174,16 +174,30 @@
       const host = document.getElementById('availableCoupons');
       if (!host) return;
 
-      const coupons = (window.VRINDA_DATA && window.VRINDA_DATA.coupons) || [];
-      host.innerHTML = coupons
-        .filter((c) => c.active !== false)
-        .map((c) => `
-          <button type="button" class="offer-chip js-use-coupon" data-code="${UI.escapeHtml(c.code)}"
-                  title="${UI.escapeHtml(c.description || '')}">
-            <strong>${UI.escapeHtml(c.code)}</strong>
-            <span>${UI.escapeHtml(c.label || c.description || '')}</span>
-          </button>
-        `).join('');
+      // Cart-page offer chips always come from the live /coupons node. They
+      // used to render from the bundled samples, so an admin who deleted a
+      // code would still see customers applying it from the cart page.
+      const db = (window.VrindaStore && window.VrindaStore._db)
+        ? window.VrindaStore._db()
+        : null;
+      const paint = (coupons) => {
+        const list = Array.isArray(coupons) ? coupons : [];
+        host.innerHTML = list
+          .filter((c) => c && c.active !== false)
+          .map((c) => `
+            <button type="button" class="offer-chip js-use-coupon" data-code="${UI.escapeHtml(c.code)}"
+                    title="${UI.escapeHtml(c.description || '')}">
+              <strong>${UI.escapeHtml(c.code)}</strong>
+              <span>${UI.escapeHtml(c.label || c.description || '')}</span>
+            </button>
+          `).join('');
+      };
+      if (!db) { paint([]); return; }
+      db.ref('coupons').once('value').then((snap) => {
+        if (!snap.exists()) { paint([]); return; }
+        const val = snap.val() || {};
+        paint(Object.keys(val).map((k) => Object.assign({ code: k }, val[k])));
+      }).catch(() => paint([]));
     }
 
     document.addEventListener('click', (event) => {
