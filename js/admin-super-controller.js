@@ -225,7 +225,10 @@
             </span>
             <div style="font-size: 11px; color: var(--color-text-muted);">${deliverySlot(o)}</div>
           </td>
-          <td><strong>₹${(o.pricing?.total || 0).toLocaleString('en-IN')}</strong></td>
+          <td>
+            <strong>₹${(o.pricing?.total || 0).toLocaleString('en-IN')}</strong>
+            ${couponDiscountLine(o)}
+          </td>
           <td><span class="badge ${getStatusBadgeClass(o.status)}">${o.status}</span></td>
           <td>
             <div class="admin-action-btns">
@@ -322,7 +325,8 @@
           </td>
           <td>
             <strong>₹${(o.pricing?.total || 0).toLocaleString('en-IN')}</strong>
-            <div style="font-size: 10px; color: var(--color-success);">${o.payment?.status || 'PAID'}</div>
+            ${couponDiscountLine(o)}
+            <div style="font-size: 10px; color: var(--color-success);">${escapeText(o.payment?.status || 'PAID')}</div>
           </td>
           <td>
             <span class="badge ${getStatusBadgeClass(o.status)}">${o.status}</span>
@@ -626,8 +630,8 @@
   }
 
   function escapeText(value) {
-    return String(value == null ? '' : value).replace(/[&<>"]/g, (ch) => (
-      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]
+    return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
     ));
   }
 
@@ -765,8 +769,8 @@
       <tr>
         <td><strong>${escapeText(c.code)}</strong></td>
         <td><span class="badge badge-accent">${escapeText((c.type || '').toUpperCase())}</span></td>
-        <td>${c.type === 'percent' ? `${c.value}% OFF${c.maxDiscount ? ` (max ₹${c.maxDiscount})` : ''}` : c.type === 'flat' ? `₹${c.value} OFF` : 'Free Delivery'}</td>
-        <td>${c.minOrder ? `₹${c.minOrder}` : 'No Min'}</td>
+        <td>${c.type === 'percent' ? `${escapeText(c.value)}% OFF${c.maxDiscount ? ` (max ₹${escapeText(c.maxDiscount)})` : ''}` : c.type === 'flat' ? `₹${escapeText(c.value)} OFF` : 'Free Delivery'}</td>
+        <td>${c.minOrder ? `₹${escapeText(c.minOrder)}` : 'No Min'}</td>
         <td>${c.active === false ? '<span class="badge badge-subtle">Disabled</span>' : '<span class="badge badge-success">Active</span>'}</td>
         <td>${escapeText(c.description) || '—'}${c.firstOrderOnly ? ' <span class="badge badge-accent" style="font-size: 10px;">First order only</span>' : ''}</td>
         <td>
@@ -946,13 +950,6 @@
     }).join('');
   }
 
-  /** Minimal escaping for admin-rendered text (the full helper lives in commerce-ui). */
-  function escapeText(value) {
-    return String(value === undefined || value === null ? '' : value)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  }
-
   /* ------------------------------------------------- STORE SETTINGS & SEO */
   function loadSettings() {
     if (!window.VrindaAdmin) return;
@@ -1083,27 +1080,10 @@
       openProductModal(null);
     });
 
-    // One-shot import of the bundled sample catalog into Firebase /products +
-    // /categories. Never overwrites existing rows (pass force only if asked).
-    document.getElementById('btnImportSampleCatalog')?.addEventListener('click', async () => {
-      if (!confirm('Import the bundled sample catalog into Firebase?\n\nThis only fills EMPTY /products and /categories nodes — products you already manage in the admin portal are left untouched.')) return;
-
-      const btn = document.getElementById('btnImportSampleCatalog');
-      if (btn) btn.disabled = true;
-      const res = await window.VrindaCatalog.importSampleCatalog();
-      if (btn) btn.disabled = false;
-
-      if (!res.success) {
-        alert('Import failed: ' + res.error +
-          (String(res.error).includes('Permission') ? '\n\nPublish the database rules first:\nfirebase deploy --only database' : ''));
-        return;
-      }
-      const { categories, products } = res.imported;
-      alert(categories || products
-        ? `Imported ${products} product(s) and ${categories} categor(y/ies) into Firebase.\n\nThe storefront now reads them from Firebase — edits made here are what customers see.`
-        : 'Firebase already has a catalog — nothing was imported. Manage your products in this table.');
-      loadProducts();
-    });
+    // The "Import sample catalog" button was removed from admin/index.html when
+    // the bundled catalog went away, so its click handler is gone as well: it was
+    // unreachable dead code that would still have written the bundled categories
+    // into /categories if anything ever wired it back up.
 
     // Save Product
     document.getElementById('btnSaveProduct')?.addEventListener('click', async () => {
@@ -1541,6 +1521,23 @@
    * early draft of the admin tables, so every helper below keeps it as a fallback
    * to stay resilient against legacy rows already sitting in the database.
    */
+  /**
+   * The coupon line for an order row.
+   *
+   * order.pricing.couponCode / discount have been written at checkout all along,
+   * but the admin tables only showed the total, so a discounted order looked like
+   * any other and nobody could tell a code had been used. Renders nothing when no
+   * coupon was applied.
+   */
+  function couponDiscountLine(order) {
+    const pricing = (order && order.pricing) || {};
+    const discount = Number(pricing.discount) || 0;
+    const code = String(pricing.couponCode || '').trim();
+    if (!code || discount <= 0) return '';
+    return '<div style="font-size: 11px; color: var(--color-success);">Coupon ' +
+      escapeText(code) + ' −₹' + discount.toLocaleString('en-IN') + '</div>';
+  }
+
   function recipientName(order) {
     const legacy = order.shippingAddress || {};
     return (order.customer && order.customer.name) || legacy.fullName || legacy.name || 'Customer';

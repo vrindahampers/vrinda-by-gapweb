@@ -38,19 +38,22 @@
      * rows have been removed from assets/data/sample-data.js and nothing
      * re-imports them.
      *
-     * importSampleCatalog() is kept for reference, but it is a no-op without
-     * sample products to import, and the admin button is hidden.
+     * importSampleCatalog() has no caller left either: its "Import sample
+     * catalog" button was removed from the admin portal. It is NOT a no-op,
+     * though — the bundled categories are still in sample-data.js, so calling it
+     * against an empty /categories node would put those placeholders back.
      */
     initSeedIfNeeded: function () {
       // Intentionally does nothing. See the note above.
     },
 
     /**
-     * One-shot migration of the bundled sample catalog into the RTDB /categories
-     * and /products nodes, so the storefront and admin portal read products from
-     * Firebase instead of the JSON sample. Runs automatically the first time a
-     * Super Admin opens a page while the RTDB catalog is still empty, and can be
-     * re-triggered from the admin portal ("Import sample catalog" button).
+     * One-shot migration of the bundled sample rows into the RTDB /categories
+     * and /products nodes. Nothing calls it any more — the automatic seed is
+     * disabled (see the note above) and the admin button was removed with the
+     * bundled catalog — but it is kept so the shape in sample-data.js still has
+     * a documented importer. Products ship as an empty array, so in practice
+     * this now only has /categories rows to write.
      * Existing rows are never overwritten unless { force: true } is passed.
      * @returns {Promise<{success: boolean, imported?: object, error?: string}>}
      */

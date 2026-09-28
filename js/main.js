@@ -61,6 +61,28 @@
     }
   }
 
+  // Homepage category tiles.
+  //
+  // The bundled rows are the instant paint; the admin-managed /categories node
+  // replaces them as soon as it has rows. Without this, a category that lives in
+  // Firebase (the source everywhere else on the storefront) never appeared on
+  // the homepage, so the tiles quietly disagreed with the category page. An
+  // empty or unreachable node leaves the bundled paint in place, which is what
+  // CatalogService.getCategories() does for the same reason.
+  let catalogCategories = (window.VRINDA_DATA && window.VRINDA_DATA.categories) || [];
+
+  async function hydrateCategoriesFromFirebase() {
+    if (!window.VrindaCatalog || typeof window.VrindaCatalog.getCategories !== 'function') return;
+    try {
+      const categories = await window.VrindaCatalog.getCategories();
+      if (!Array.isArray(categories) || !categories.length || categories === catalogCategories) return;
+      catalogCategories = categories;
+      renderCategories();
+    } catch (err) {
+      console.warn('Homepage category hydrate warning:', err.message);
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     if (!window.VRINDA_DATA) return;
 
@@ -83,6 +105,9 @@
 
     // Re-paint the product sections from the admin-managed Firebase catalog.
     hydrateCatalogFromFirebase();
+
+    // Same for the category tiles, which are admin-managed in Firebase too.
+    hydrateCategoriesFromFirebase();
 
     // Repaint the FAQ as soon as the admin-managed answers arrive from Firebase.
     document.addEventListener('vrinda:faqs-changed', renderFAQ);
@@ -205,15 +230,15 @@
     const container = document.getElementById('categoriesGrid');
     if (!container) return;
 
-    container.innerHTML = window.VRINDA_DATA.categories.map(cat => `
-      <a class="category-card" href="./category/?slug=${encodeURIComponent(cat.slug || cat.id)}"
-         aria-label="Browse ${cat.name}" title="Browse ${cat.name}">
-        <img src="${cat.image}" alt="${cat.name}" class="category-bg" loading="lazy">
+    container.innerHTML = catalogCategories.map(cat => `
+      <a class="category-card" href="./category/?slug=${encodeURIComponent(cat.slug || cat.id || '')}"
+         aria-label="Browse ${UI.escapeHtml(cat.name || '')}" title="Browse ${UI.escapeHtml(cat.name || '')}">
+        <img src="${UI.escapeHtml(cat.image || '')}" alt="${UI.escapeHtml(cat.name || '')}" class="category-bg" loading="lazy">
         <div class="category-overlay"></div>
         <div class="category-info">
-          <span class="category-count">${cat.count}</span>
-          <h3 class="category-title">${cat.name}</h3>
-          <p style="font-size: 13px; opacity: 0.9; margin-bottom: 12px; line-height: 1.4;">${cat.description}</p>
+          <span class="category-count">${UI.escapeHtml(cat.count || '')}</span>
+          <h3 class="category-title">${UI.escapeHtml(cat.name || '')}</h3>
+          <p style="font-size: 13px; opacity: 0.9; margin-bottom: 12px; line-height: 1.4;">${UI.escapeHtml(cat.description || '')}</p>
           <span class="btn btn-glass btn-sm" style="color: #fff; border-color: rgba(255,255,255,0.4);">
             Browse Category &rarr;
           </span>

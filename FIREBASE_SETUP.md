@@ -181,16 +181,21 @@ Two more one-time notes for a brand-new project:
 
 - The first Super Admin still has to be bootstrapped in the Firebase console
   (`users/<uid>/role = "superadmin"`), because no client is allowed to write its own role.
-- `/products` and `/categories` start empty on purpose — there is no bundled catalog left to
-  import (`assets/data/sample-data.js` now ships empty `products` and `coupons` arrays) and no
-  seeder refills them. Add products through **Admin → Product Catalog → Add New Product** or
-  **Bulk Product Maker**, and discount codes through **Admin → Discount Coupons**.
+- `/products`, `/coupons` and `/categories` all start empty on purpose: no seeder refills them,
+  and `assets/data/sample-data.js` ships empty `products` and `coupons` arrays. Add products
+  through **Admin → Product Catalog → Add New Product** or **Bulk Product Maker**, and discount
+  codes through **Admin → Discount Coupons**.
+- Categories are the one exception: there is no category editor in the portal yet, so
+  `sample-data.js` still carries the bundled category rows. They are the fallback paint for the
+  homepage category tiles and the category page grid, so a fresh project is not a blank screen.
+  The moment `/categories` holds rows in Firebase they take over in both places; until then, add
+  them by hand in the Firebase console.
 
 ### What the Super Admin portal writes where
 
 | Portal action | RTDB node | Read by the storefront as |
 | --- | --- | --- |
-| Product Catalog (add/edit/delete) | `products/$id`, `categories/$id` | every product grid, product page, search, cart |
+| Product Catalog (add/edit/delete) | `products/$id`, `categories/$id` | every product grid (homepage featured rows included), product page, homepage category tiles, category page, search, cart |
 | Promotional Coupons (create/edit/delete) | `coupons/$CODE` | cart + checkout discount, free-delivery rules |
 | Team & Roles (promote/reassign) | `users/$uid/role` + `admins` / `staff` / `deliveryManagers` | portal access everywhere |
 | Store Settings (contact, thresholds) | `settings` | free-delivery threshold, shipping fee, cart totals, announcement bar, WhatsApp links |
@@ -240,7 +245,7 @@ Saving Store Settings reports the real outcome — a denied write now says so (a
 | --- | --- |
 | `users/$uid` | Owner read/write; Admins read all; role field only writable by Admins |
 | `admins`, `staff`, `deliveryManagers` | Staff registries; only Super Admins write |
-| `products`, `categories` | Public read; Admin-only write (nothing seeds them — the catalog is added through the portal and the bundled arrays ship empty) |
+| `products`, `categories` | Public read; Admin-only write (nothing seeds them — products are added through the portal; `/categories` has to be filled by hand until a category editor exists) |
 | `coupons/$CODE` | Public read (the cart and checkout validate codes client-side); Admin-only write, and each row must carry `type` = `percent` \| `flat` \| `shipping` with a numeric `value` (optional `minOrder`, `maxDiscount`, `firstOrderOnly`, `active`, `label`, `description`) |
 | `reviews/$productId/$reviewId` | Public read; a verified shopper may only create/edit/delete their **own** review row (`userId == auth.uid`); Staff & Super Admins can moderate any review |
 | `cart/$uid`, `wishlist/$uid` | Owner-only read/write (Phase 4) |
