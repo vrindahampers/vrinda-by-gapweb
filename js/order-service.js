@@ -587,11 +587,21 @@
 
   /**
    * Real-time subscription to ALL orders (Admin/Staff only).
+   *
+   * `onError` receives the database's rejection, which in practice is
+   * PERMISSION_DENIED until the rules have been published. It is optional so
+   * existing callers keep working, but any portal that shows a table should pass
+   * one: without it a refused read is invisible, and the table keeps whatever
+   * "Loading..." row the page shipped with, for ever.
+   *
    * Returns an unsubscribe function.
    */
-  Orders.listenToAllOrders = function (callback) {
+  Orders.listenToAllOrders = function (callback, onError) {
     const db = this._db();
     if (!db || typeof callback !== 'function') {
+      if (typeof onError === 'function') {
+        onError({ code: 'UNAVAILABLE', message: 'The Realtime Database SDK is not available on this page.' });
+      }
       return () => {};
     }
 
@@ -602,17 +612,32 @@
       callback(list);
     };
 
-    ref.on('value', handler);
+    // Firebase calls this for a refused read. A blocked connection is different:
+    // it reports nothing at all, so callers need their own watchdog as well.
+    const errorHandler = (err) => {
+      if (typeof onError === 'function') {
+        onError(err);
+        return;
+      }
+      console.warn('Orders subscription refused:', (err && (err.code || err.message)) || err);
+    };
+
+    ref.on('value', handler, errorHandler);
     return () => ref.off('value', handler);
   };
 
   /**
    * Real-time subscription to cancellation requests (Admin/Staff only).
+   * `onError` behaves exactly as in listenToAllOrders, and is just as necessary:
+   * a refused read must be visible, not an empty table.
    * Returns an unsubscribe function.
    */
-  Orders.listenToCancellationRequests = function (callback) {
+  Orders.listenToCancellationRequests = function (callback, onError) {
     const db = this._db();
     if (!db || typeof callback !== 'function') {
+      if (typeof onError === 'function') {
+        onError({ code: 'UNAVAILABLE', message: 'The Realtime Database SDK is not available on this page.' });
+      }
       return () => {};
     }
 
@@ -623,7 +648,15 @@
       callback(list);
     };
 
-    ref.on('value', handler);
+    const errorHandler = (err) => {
+      if (typeof onError === 'function') {
+        onError(err);
+        return;
+      }
+      console.warn('Cancellation requests subscription refused:', (err && (err.code || err.message)) || err);
+    };
+
+    ref.on('value', handler, errorHandler);
     return () => ref.off('value', handler);
   };
 

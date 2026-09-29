@@ -20,6 +20,14 @@
   let customLoadError = null;
   let allFaqs = [];
   let faqLoadError = null;
+  // Live-feed health for the two Realtime Database subscriptions this portal
+  // cannot work without. A refused read and a connection that never answers are
+  // different failures, and both used to leave the ledger on its "Loading..." row.
+  let ordersFeedSeen = false;
+  let ordersFeedPending = false;
+  let ordersLoadError = null;
+  let ordersWatchdog = null;
+  let cancellationsLoadError = null;
   // Newsletter subscribers, fetched when the tab is opened or refreshed.
   let newsletterRows = [];
   let newsletterLoadError = null;
@@ -77,19 +85,31 @@
 
   /* -------------------------------------------------------- REAL-TIME SUBSCRIBERS */
   function setupListeners() {
-    if (!window.VrindaOrders || !window.VrindaAdmin) return;
-
-    // 1. Orders listener
-    window.VrindaOrders.listenToAllOrders((orders) => {
-      allOrders = orders;
-      renderStats();
-      renderRecentOrders();
+    // A silent return here used to leave every table on its "Loading..." row for
+    // ever. Name what is missing instead, in the place the owner is looking.
+    if (!window.VrindaOrders || !window.VrindaAdmin) {
+      ordersLoadError = 'The order service did not load on this page, so the ledger cannot be read. Check that order-service.js and admin-service.js are both listed before admin-super-controller.js.';
+      ordersFeedPending = false;
       renderOrdersTable();
-    });
+      console.error('Admin portal: window.VrindaOrders / window.VrindaAdmin are missing.');
+      return;
+    }
+
+    // 1. Orders listener. The rejection callback is the whole point: until the
+    //    database rules are published the Realtime Database refuses this read,
+    //    and without it the ledger sat on "Loading orders ledger..." for ever.
+    ordersFeedPending = true;
+    renderOrdersTable();
+    attachOrdersFeed();
+    armOrdersWatchdog();
 
     // 2. Cancellation Requests listener
     window.VrindaOrders.listenToCancellationRequests((requests) => {
+      cancellationsLoadError = null;
       allCancellations = requests;
+      renderCancellationsTable();
+    }, (err) => {
+      cancellationsLoadError = describeLoadFailure('cancellation requests', err);
       renderCancellationsTable();
     });
 
@@ -173,11 +193,84 @@
     statusFilter?.addEventListener('change', () => renderOrdersTable());
     unverifiedToggle?.addEventListener('change', () => renderOrdersTable());
 
+    // Exports exactly the rows the filters above are showing.
+    document.getElementById('btnExportOrders')?.addEventListener('click', downloadOrdersCsv);
+
     document.getElementById('btnRefreshStats')?.addEventListener('click', () => {
       renderStats();
       alert('Stats recalculated!');
     });
   }
+  /**
+   * (Re)subscribe to the orders feed. Split out so the error row's Retry button
+   * can call it again without a page reload.
+   */
+  function attachOrdersFeed() {
+    window.VrindaOrders.listenToAllOrders(handleOrdersSnapshot, handleOrdersFailure);
+  }
+
+  function handleOrdersSnapshot(orders) {
+    ordersFeedSeen = true;
+    ordersFeedPending = false;
+    ordersLoadError = null;
+    disarmOrdersWatchdog();
+    allOrders = orders;
+    renderStats();
+    renderRecentOrders();
+    renderOrdersTable();
+  }
+
+  function handleOrdersFailure(err) {
+    ordersFeedSeen = true;
+    ordersFeedPending = false;
+    ordersLoadError = describeLoadFailure('orders', err);
+    renderOrdersTable();
+  }
+
+  function disarmOrdersWatchdog() {
+    if (ordersWatchdog) {
+      clearTimeout(ordersWatchdog);
+      ordersWatchdog = null;
+    }
+  }
+
+  /**
+   * A blocked realtime connection reports neither a value nor an error, so none
+   * of the callbacks above can catch it: this is the only guard against a ledger
+   * that waits for ever. Twelve seconds is well past a cold start on a phone.
+   */
+  function armOrdersWatchdog() {
+    disarmOrdersWatchdog();
+    ordersWatchdog = setTimeout(() => {
+      if (ordersFeedSeen) return;
+      ordersFeedPending = false;
+      ordersLoadError = 'No answer from the orders feed after 12 seconds, and no refusal either — that usually means the realtime connection is blocked (offline tab, strict network or VPN). Check the browser console for a failed or stalled database request, then press Retry.';
+      renderOrdersTable();
+    }, 12000);
+  }
+
+  /** Retry from the failure row, so a transient refusal does not need a reload. */
+  function retryOrdersFeed() {
+    ordersLoadError = null;
+    ordersFeedSeen = false;
+    ordersFeedPending = true;
+    renderOrdersTable();
+    attachOrdersFeed();
+    armOrdersWatchdog();
+  }
+
+  /**
+   * Turn a database rejection into a sentence an owner can act on. Unpublished
+   * rules are the usual cause, and the old ledger hid it completely.
+   */
+  function describeLoadFailure(what, err) {
+    const raw = [err && err.code, err && err.message].filter(Boolean).join(' ');
+    if (/permission_denied/i.test(raw)) {
+      return `Could not load ${what}: PERMISSION_DENIED. Publish the database rules (firebase deploy --only database) and make sure this account holds an operations role — then press Retry.`;
+    }
+    return `Could not load ${what}: ${raw || 'unknown error'}. Press Retry, and check the browser console for the full error.`;
+  }
+
   /* ------------------------------------------------------------- STATS RENDERING */
   function renderStats() {
     if (!window.VrindaAdmin) return;
@@ -200,6 +293,13 @@
   function renderRecentOrders() {
     const tbody = document.getElementById('recentOrdersTbody');
     if (!tbody) return;
+
+    // An empty in-flight table reads as "all caught up", which is exactly the wrong
+    // message when the feed never loaded — say what actually happened instead.
+    if (ordersLoadError && !allOrders.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 1.5rem;">${escapeText(ordersLoadError)}</td></tr>`;
+      return;
+    }
 
     const inFlight = allOrders.filter(o => o.status !== 'Delivered' && o.status !== 'Cancelled').slice(0, 5);
     if (!inFlight.length) {
@@ -246,11 +346,12 @@
 
     bindActionButtons(tbody);
   }
-  /* ----------------------------------------------------------- FULL ORDERS TABLE */
-  function renderOrdersTable() {
-    const tbody = document.getElementById('ordersTbody');
-    if (!tbody) return;
-
+  /**
+   * The rows the ledger is currently showing. Extracted from renderOrdersTable so
+   * the CSV export always matches what is on screen instead of quietly exporting
+   * every order ever placed.
+   */
+  function filterOrders() {
     const query = (document.getElementById('orderSearchInput')?.value || '').toLowerCase().trim();
     const statusFilter = document.getElementById('orderStatusFilter')?.value || 'ALL';
     const unverifiedOnly = !!document.getElementById('orderUnverifiedOnly')?.checked;
@@ -276,6 +377,113 @@
         const phone = recipientPhone(o).toLowerCase();
         return id.includes(query) || name.includes(query) || phone.includes(query);
       });
+    }
+
+    return filtered;
+  }
+
+  /**
+   * Spreadsheet-ready export of the ledger, following the newsletter export's
+   * conventions (newsletterToCsv in admin-service.js). Amounts stay plain numbers
+   * so Sheets can total a column, and any cell that could contain a comma, quote
+   * or newline is quoted. This exists for the monthly GST record, courier handover
+   * sheets and FamPay reconciliation — all of which are about the rows in view, not
+   * the whole history.
+   */
+  function ordersToCsv(rows) {
+    const cell = (value) => {
+      const s = value === undefined || value === null ? '' : String(value);
+      return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const header = [
+      'order_id', 'placed_on', 'status', 'customer', 'phone', 'city', 'pincode',
+      'delivery_type', 'slot', 'items', 'item_names',
+      'subtotal', 'discount', 'coupon', 'total',
+      'payment_mode', 'payment_verified', 'utr'
+    ];
+
+    const rowCsv = rows.map((o) => {
+      const pricing = o.pricing || {};
+      const payment = o.payment || {};
+      const delivery = o.delivery || {};
+      const placedOn = o.createdAt ? new Date(o.createdAt) : null;
+      return [
+        cell(o.orderId),
+        cell(placedOn && !isNaN(placedOn.getTime()) ? placedOn.toISOString() : ''),
+        cell(o.status),
+        cell(recipientName(o)),
+        cell(recipientPhone(o)),
+        cell(recipientCity(o)),
+        cell(recipientPincode(o)),
+        cell(delivery.type || ''),
+        cell(deliverySlot(o)),
+        cell((o.items || []).length),
+        cell((o.items || []).map(i => `${i.name || 'Item'} x${i.qty || 1}`).join(' | ')),
+        cell(pricing.subtotal || 0),
+        cell(pricing.discount || 0),
+        cell(pricing.couponCode || ''),
+        cell(pricing.total || 0),
+        cell(payment.mode || ''),
+        cell(payment.verified === true ? 'yes' : payment.verified === false ? 'no' : ''),
+        cell(payment.utr || '')
+      ].join(',');
+    });
+
+    return [header.join(',')].concat(rowCsv).join('\n');
+  }
+
+  /** Trigger a browser download of the CSV without touching the network. */
+  function downloadOrdersCsv() {
+    const rows = filterOrders();
+    if (!rows.length) {
+      alert('There is nothing to export in the current view. Clear the search or filters and try again.');
+      return;
+    }
+
+    const csv = ordersToCsv(rows);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'orders-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // Revoke on the next tick so Safari has time to start the download.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  /* ----------------------------------------------------------- FULL ORDERS TABLE */
+  function renderOrdersTable() {
+    const tbody = document.getElementById('ordersTbody');
+    if (!tbody) return;
+
+    const filtered = filterOrders();
+
+    if (ordersLoadError) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" style="text-align: center; padding: 2rem;">
+            <div style="color: var(--color-text-muted);">${escapeText(ordersLoadError)}</div>
+            <button class="btn btn-xs btn-primary js-retry-orders" style="margin-top: 0.75rem;">↻ Retry</button>
+          </td>
+        </tr>`;
+      bindActionButtons(tbody);
+      return;
+    }
+
+    // A feed that has not answered yet, a feed with no orders, and a filter that
+    // matches nothing are three different situations. The old code answered all of
+    // them with "No orders match the selected filters.", which is what sent an
+    // owner hunting for a filter bug that did not exist.
+    if (!allOrders.length && ordersFeedPending) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">Waiting for the orders feed…</td></tr>`;
+      return;
+    }
+
+    if (!allOrders.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">No orders yet — every new order appears here live, with its 11-step timeline.</td></tr>`;
+      return;
     }
 
     if (!filtered.length) {
@@ -382,6 +590,11 @@
       } else {
         badge.style.display = 'none';
       }
+    }
+
+    if (cancellationsLoadError) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">${escapeText(cancellationsLoadError)}</td></tr>`;
+      return;
     }
 
     if (!allCancellations.length) {
@@ -1274,6 +1487,13 @@
         confirmDeleteOrder(btn.getAttribute('data-order-id'), btn.getAttribute('data-user-id'));
       });
     });
+
+    // The failure row's Retry re-subscribes the feed, so a refusal that was only
+    // temporary (a token that attached late, a connection that dropped) does not
+    // cost the admin a full page reload.
+    container.querySelectorAll('.js-retry-orders').forEach(btn => {
+      btn.addEventListener('click', retryOrdersFeed);
+    });
   }
 
   /**
@@ -1291,7 +1511,11 @@
 
   /** Escaping for a value interpolated into an HTML attribute. */
   function escAttr(value) {
-    return escText(value).replace(/`/g, '&#96;');
+    // escapeText, not escText: the typo here threw a ReferenceError inside the row
+    // template, which aborted the whole innerHTML assignment and left the ledger
+    // on "Loading orders ledger..." for any owner or manager (the only roles that
+    // render the delete button this is used by).
+    return escapeText(value).replace(/`/g, '&#96;');
   }
 
   function confirmDeleteOrder(orderId, userId) {

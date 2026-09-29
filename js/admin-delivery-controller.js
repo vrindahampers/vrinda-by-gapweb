@@ -18,6 +18,12 @@
 
   let allOrders = [];
   let activeHubOrderId = null;
+  // Live-feed health, so a refused or silent read cannot leave the queue on the
+  // "Loading active dispatches..." row for ever.
+  let hubFeedSeen = false;
+  let hubFeedPending = false;
+  let hubLoadError = null;
+  let hubWatchdog = null;
 
   async function initDelivery() {
     if (!window.VrindaAuth) return;
@@ -64,15 +70,95 @@
   }
 
   function setupListeners() {
-    if (!window.VrindaOrders) return;
-
-    window.VrindaOrders.listenToAllOrders((orders) => {
-      allOrders = orders;
+    // Naming the missing script beats a queue that shows its "Loading active
+    // dispatches..." row for ever.
+    if (!window.VrindaOrders) {
+      hubLoadError = 'The order service did not load on this page, so the dispatch queue cannot be read. Check that order-service.js is listed before admin-delivery-controller.js.';
+      hubFeedPending = false;
       renderActiveDeliveries();
-      renderCompletedDeliveries();
-    });
+      console.error('Delivery hub: window.VrindaOrders is missing.');
+      return;
+    }
+
+    // The rejection callback is the point: until the database rules are published
+    // the Realtime Database refuses this read, and without it the queue sat on
+    // "Loading active dispatches..." with nothing to explain it.
+    hubFeedPending = true;
+    renderActiveDeliveries();
+    attachHubFeed();
+    armHubWatchdog();
 
     document.getElementById('deliverySearchInput')?.addEventListener('input', renderActiveDeliveries);
+  }
+
+  /** (Re)subscribe to the dispatch feed; the failure row's Retry calls this again. */
+  function attachHubFeed() {
+    window.VrindaOrders.listenToAllOrders(handleHubSnapshot, handleHubFailure);
+  }
+
+  function handleHubSnapshot(orders) {
+    hubFeedSeen = true;
+    hubFeedPending = false;
+    hubLoadError = null;
+    disarmHubWatchdog();
+    allOrders = orders;
+    renderActiveDeliveries();
+    renderCompletedDeliveries();
+  }
+
+  function handleHubFailure(err) {
+    hubFeedSeen = true;
+    hubFeedPending = false;
+    hubLoadError = describeFeedFailure(err);
+    renderActiveDeliveries();
+  }
+
+  function disarmHubWatchdog() {
+    if (hubWatchdog) {
+      clearTimeout(hubWatchdog);
+      hubWatchdog = null;
+    }
+  }
+
+  /**
+   * A blocked realtime connection reports neither a value nor an error, so no
+   * callback above can catch it: this is the only guard against a queue that
+   * waits for ever.
+   */
+  function armHubWatchdog() {
+    disarmHubWatchdog();
+    hubWatchdog = setTimeout(() => {
+      if (hubFeedSeen) return;
+      hubFeedPending = false;
+      hubLoadError = 'No answer from the dispatch feed after 12 seconds, and no refusal either — that usually means the realtime connection is blocked (offline tab, strict network or VPN). Check the browser console, then press Retry.';
+      renderActiveDeliveries();
+    }, 12000);
+  }
+
+  /** Retry from the failure row, so a transient refusal does not need a reload. */
+  function retryHubFeed() {
+    hubLoadError = null;
+    hubFeedSeen = false;
+    hubFeedPending = true;
+    renderActiveDeliveries();
+    attachHubFeed();
+    armHubWatchdog();
+  }
+
+  /** A database rejection, in words a delivery manager can act on. */
+  function describeFeedFailure(err) {
+    const raw = [err && err.code, err && err.message].filter(Boolean).join(' ');
+    if (/permission_denied/i.test(raw)) {
+      return `Could not load dispatches: PERMISSION_DENIED. Publish the database rules (firebase deploy --only database) and make sure this account holds an operations role, then press Retry.`;
+    }
+    return `Could not load dispatches: ${raw || 'unknown error'}. Press Retry, and check the browser console for the full error.`;
+  }
+
+  /** Escaping for text that comes back from the database. */
+  function escapeText(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+    ));
   }
 
   /* --------------------------------------------------- ACTIVE DISPATCH QUEUE */
@@ -99,6 +185,30 @@
         ].join(' ').toLowerCase();
         return haystack.includes(query);
       });
+    }
+
+    if (hubLoadError) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" style="text-align: center; padding: 2rem;">
+            <div style="color: var(--color-text-muted);">${escapeText(hubLoadError)}</div>
+            <button class="btn btn-xs btn-primary js-retry-orders" style="margin-top: 0.75rem;">↻ Retry</button>
+          </td>
+        </tr>`;
+      bindRowActions(tbody);
+      return;
+    }
+
+    // An empty queue, a queue that has not loaded yet and a filter that matches
+    // nothing are three different answers, and only one of them is good news.
+    if (!allOrders.length && hubFeedPending) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">Waiting for the dispatch feed…</td></tr>`;
+      return;
+    }
+
+    if (!allOrders.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">No dispatches in transit right now. Orders appear here once they are Packed.</td></tr>`;
+      return;
     }
 
     if (!filtered.length) {
@@ -229,6 +339,11 @@
           btn.textContent = '✅ Mark Delivered';
         }
       });
+    });
+
+    // The failure row's Retry re-subscribes the feed instead of forcing a reload.
+    container.querySelectorAll('.js-retry-orders').forEach(btn => {
+      btn.addEventListener('click', retryHubFeed);
     });
   }
 

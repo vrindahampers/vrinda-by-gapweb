@@ -11,6 +11,13 @@
   let allCancellations = [];
   let allReviews = [];
   let activeChecklistOrderId = null;
+  // Live-feed health: a refused read and a connection that never answers are
+  // different failures, and both used to leave the queue on the "Loading active
+  // orders..." row that admin/staff.html ships with.
+  let staffOrdersFeedSeen = false;
+  let staffOrdersFeedPending = false;
+  let staffOrdersLoadError = null;
+  let staffOrdersWatchdog = null;
 
   async function initStaff() {
     if (!window.VrindaAuth) return;
@@ -57,18 +64,30 @@
   }
 
   function setupListeners() {
-    if (!window.VrindaOrders) return;
-
-    // 1. Orders
-    window.VrindaOrders.listenToAllOrders((orders) => {
-      allOrders = orders;
+    // Naming the missing script beats a queue that shows its "Loading active
+    // orders..." row for ever.
+    if (!window.VrindaOrders) {
+      staffOrdersLoadError = 'The order service did not load on this page, so the queue cannot be read. Check that order-service.js is listed before admin-staff-controller.js.';
+      staffOrdersFeedPending = false;
       renderStaffOrders();
-    });
+      console.error('Staff portal: window.VrindaOrders is missing.');
+      return;
+    }
+
+    // 1. Orders. The rejection callback is the point: until the database rules are
+    //    published the Realtime Database refuses this read, and without it the
+    //    queue sat on "Loading active orders..." with nothing to explain it.
+    staffOrdersFeedPending = true;
+    renderStaffOrders();
+    attachStaffOrdersFeed();
+    armStaffOrdersWatchdog();
 
     // 2. Cancellations
     window.VrindaOrders.listenToCancellationRequests((requests) => {
       allCancellations = requests;
       renderStaffCancellations();
+    }, (err) => {
+      console.warn('Staff portal: cancellation feed refused:', (err && (err.code || err.message)) || err);
     });
 
     // 3. Reviews
@@ -83,6 +102,75 @@
     const statusFilter = document.getElementById('staffStatusFilter');
     searchInput?.addEventListener('input', renderStaffOrders);
     statusFilter?.addEventListener('change', renderStaffOrders);
+  }
+
+  /** (Re)subscribe to the orders feed; the failure row's Retry calls this again. */
+  function attachStaffOrdersFeed() {
+    window.VrindaOrders.listenToAllOrders(handleStaffOrdersSnapshot, handleStaffOrdersFailure);
+  }
+
+  function handleStaffOrdersSnapshot(orders) {
+    staffOrdersFeedSeen = true;
+    staffOrdersFeedPending = false;
+    staffOrdersLoadError = null;
+    disarmStaffOrdersWatchdog();
+    allOrders = orders;
+    renderStaffOrders();
+  }
+
+  function handleStaffOrdersFailure(err) {
+    staffOrdersFeedSeen = true;
+    staffOrdersFeedPending = false;
+    staffOrdersLoadError = describeFeedFailure('orders', err);
+    renderStaffOrders();
+  }
+
+  function disarmStaffOrdersWatchdog() {
+    if (staffOrdersWatchdog) {
+      clearTimeout(staffOrdersWatchdog);
+      staffOrdersWatchdog = null;
+    }
+  }
+
+  /**
+   * A blocked realtime connection reports neither a value nor an error, so no
+   * callback above can catch it: this is the only guard against a queue that
+   * waits for ever.
+   */
+  function armStaffOrdersWatchdog() {
+    disarmStaffOrdersWatchdog();
+    staffOrdersWatchdog = setTimeout(() => {
+      if (staffOrdersFeedSeen) return;
+      staffOrdersFeedPending = false;
+      staffOrdersLoadError = 'No answer from the orders feed after 12 seconds, and no refusal either — that usually means the realtime connection is blocked (offline tab, strict network or VPN). Check the browser console, then press Retry.';
+      renderStaffOrders();
+    }, 12000);
+  }
+
+  /** Retry from the failure row, so a transient refusal does not need a reload. */
+  function retryStaffOrdersFeed() {
+    staffOrdersLoadError = null;
+    staffOrdersFeedSeen = false;
+    staffOrdersFeedPending = true;
+    renderStaffOrders();
+    attachStaffOrdersFeed();
+    armStaffOrdersWatchdog();
+  }
+
+  /** A database rejection, in words an operator can act on. */
+  function describeFeedFailure(what, err) {
+    const raw = [err && err.code, err && err.message].filter(Boolean).join(' ');
+    if (/permission_denied/i.test(raw)) {
+      return `Could not load ${what}: PERMISSION_DENIED. Publish the database rules (firebase deploy --only database) and make sure this account holds an operations role, then press Retry.`;
+    }
+    return `Could not load ${what}: ${raw || 'unknown error'}. Press Retry, and check the browser console for the full error.`;
+  }
+
+  /** Escaping for text that comes back from the database. */
+  function escapeText(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+    ));
   }
 
   /* ---------------------------------------------------- ORDERS TABLE */
@@ -105,6 +193,30 @@
         const phone = recipientPhone(o).toLowerCase();
         return id.includes(query) || name.includes(query) || phone.includes(query);
       });
+    }
+
+    if (staffOrdersLoadError) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align: center; padding: 2rem;">
+            <div style="color: var(--color-text-muted);">${escapeText(staffOrdersLoadError)}</div>
+            <button class="btn btn-xs btn-primary js-retry-orders" style="margin-top: 0.75rem;">↻ Retry</button>
+          </td>
+        </tr>`;
+      bindActionButtons(tbody);
+      return;
+    }
+
+    // "No active orders matching criteria." on a queue that never loaded is what
+    // sent people looking for a filter bug. Say which of the three it is.
+    if (!allOrders.length && staffOrdersFeedPending) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">Waiting for the orders feed…</td></tr>`;
+      return;
+    }
+
+    if (!allOrders.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">No orders yet — new orders appear here live as soon as they are placed.</td></tr>`;
+      return;
     }
 
     if (!filtered.length) {
@@ -330,6 +442,11 @@
 
     container.querySelectorAll('.js-open-assign-delivery').forEach(btn => {
       btn.addEventListener('click', () => openAssignDeliveryModal(btn.getAttribute('data-order-id')));
+    });
+
+    // The failure row's Retry re-subscribes the feed instead of forcing a reload.
+    container.querySelectorAll('.js-retry-orders').forEach(btn => {
+      btn.addEventListener('click', retryStaffOrdersFeed);
     });
   }
 
