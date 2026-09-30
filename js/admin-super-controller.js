@@ -188,22 +188,62 @@
       });
     }
 
-    // Filters and Search
+    // Filters and Search. The controls first read back whatever the URL was
+    // bookmarked with, so a shared ledger link opens on the same view; every
+    // change below then writes the state back with replaceState (never
+    // pushState — typing must not fill the back button with keystrokes).
     const searchInput = document.getElementById('orderSearchInput');
     const statusFilter = document.getElementById('orderStatusFilter');
     const unverifiedToggle = document.getElementById('orderUnverifiedOnly');
-    searchInput?.addEventListener('input', () => renderOrdersTable());
-    statusFilter?.addEventListener('change', () => renderOrdersTable());
-    unverifiedToggle?.addEventListener('change', () => renderOrdersTable());
+    restoreOrdersFiltersFromUrl();
+    const filtersChanged = () => {
+      renderOrdersTable();
+      syncOrdersFiltersToUrl();
+    };
+    // Search is debounced: pasting a phone number must not rebuild the ledger
+    // once per character. change (blur / Enter) applies immediately.
+    let searchDebounce = null;
+    searchInput?.addEventListener('input', () => {
+      if (searchDebounce) clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(() => {
+        searchDebounce = null;
+        renderOrdersTable();
+        syncOrdersFiltersToUrl();
+      }, 250);
+    });
+    searchInput?.addEventListener('change', () => {
+      if (searchDebounce) {
+        clearTimeout(searchDebounce);
+        searchDebounce = null;
+      }
+      filtersChanged();
+    });
+    statusFilter?.addEventListener('change', filtersChanged);
+    unverifiedToggle?.addEventListener('change', filtersChanged);
+
+    // The badge is the shortcut into the one filter it measures: press it and
+    // the ledger shows exactly those payments. The reconcile banner's "Show all"
+    // is the way back out of that filter.
+    document.getElementById('ordersBadge')?.addEventListener('click', focusUnverifiedPayments);
+    document.getElementById('btnClearUnverifiedFilter')?.addEventListener('click', () => {
+      if (unverifiedToggle) unverifiedToggle.checked = false;
+      filtersChanged();
+    });
 
     // Exports exactly the rows the filters above are showing.
     document.getElementById('btnExportOrders')?.addEventListener('click', downloadOrdersCsv);
 
     // Date range (today's packing list, the GST month) and the "This month" preset.
-    document.getElementById('orderDateFrom')?.addEventListener('change', () => renderOrdersTable());
-    document.getElementById('orderDateTo')?.addEventListener('change', () => renderOrdersTable());
-    document.getElementById('btnDateThisMonth')?.addEventListener('click', setThisMonthRange);
-    document.getElementById('btnClearOrderDates')?.addEventListener('click', clearDateRange);
+    document.getElementById('orderDateFrom')?.addEventListener('change', filtersChanged);
+    document.getElementById('orderDateTo')?.addEventListener('change', filtersChanged);
+    document.getElementById('btnDateThisMonth')?.addEventListener('click', () => {
+      setThisMonthRange();
+      syncOrdersFiltersToUrl();
+    });
+    document.getElementById('btnClearOrderDates')?.addEventListener('click', () => {
+      clearDateRange();
+      syncOrdersFiltersToUrl();
+    });
 
     // Bulk actions. The select-all box lives in the table head, so it is bound
     // once here; the per-row boxes are (re)bound with every render.
@@ -211,8 +251,22 @@
       setAllVisibleSelection(!!(event && event.target && event.target.checked));
     });
     document.getElementById('btnBulkMarkPacked')?.addEventListener('click', bulkMarkPacked);
+    document.getElementById('btnBulkVerify')?.addEventListener('click', bulkVerifyPayments);
     document.getElementById('btnBulkPrint')?.addEventListener('click', () => printOrdersFromLedger(selectedInView()));
     document.getElementById('btnBulkClear')?.addEventListener('click', clearSelection);
+
+    // The detail drawer's buttons belong to the page, so they bind once; the
+    // rows that open it are (re)bound with every render.
+    const closeOrderDetail = () => {
+      const modal = document.getElementById('modalOrderDetail');
+      if (modal) modal.style.display = 'none';
+      detailOrderId = null;
+    };
+    document.getElementById('btnOrderDetailClose')?.addEventListener('click', closeOrderDetail);
+    document.getElementById('btnOrderDetailCloseX')?.addEventListener('click', closeOrderDetail);
+    document.getElementById('btnOrderDetailPrint')?.addEventListener('click', () => {
+      if (detailOrderId) printOrdersFromLedger([detailOrderId]);
+    });
 
     document.getElementById('btnRefreshStats')?.addEventListener('click', () => {
       renderStats();
@@ -336,15 +390,75 @@
     fillOrders('statOrders30', stats.orders30);
 
     // The badge on the Orders tab: payments waiting for a human, which is the one
-    // number that should pull somebody into the ledger.
+    // number that should pull somebody into the ledger. It is a button as well as
+    // a count — clicking it opens exactly those orders.
     const badge = document.getElementById('ordersBadge');
     if (badge) {
       const pending = Number(stats.unverifiedPayments) || 0;
       badge.style.display = pending ? 'inline-flex' : 'none';
       badge.textContent = String(pending);
       badge.title = pending
-        ? pending + ' order' + (pending === 1 ? '' : 's') + ' with a payment still to verify in FamPay'
+        ? pending + ' payment' + (pending === 1 ? '' : 's') + ' still to verify in FamPay — click to open them in the ledger'
         : 'No payments waiting to be verified';
+    }
+
+    fillInsights(stats);
+  }
+
+  /**
+   * The three panels under the KPI row: what is selling, where the orders are
+   * sitting, and how much money is still waiting for a human. The bars are plain
+   * div widths — the dashboard must render with no charting dependency, and a
+   * number beside a bar reads on a phone without hovering anything.
+   */
+  function fillInsights(stats) {
+    const panel = (rows, renderRow) => {
+      if (!rows.length) return '<div style="font-size: 12px; color: var(--color-text-muted);">Nothing to show yet.</div>';
+      const max = Math.max.apply(null, rows.map((r) => r.measure)) || 1;
+      return rows.map(renderRow(max)).join('');
+    };
+    const bar = (percent, color) => `
+      <div style="height: 4px; background: var(--color-border-subtle); border-radius: 2px; margin-top: 3px;">
+        <div style="height: 4px; width: ${percent}%; background: ${color}; border-radius: 2px;"></div>
+      </div>`;
+
+    const topEl = document.getElementById('topProductsList');
+    if (topEl) {
+      const rows = (stats.topProducts || []).map((t) => ({
+        label: t.name, qty: Number(t.qty) || 0, revenue: Number(t.revenue) || 0, measure: Number(t.qty) || 0
+      }));
+      topEl.innerHTML = panel(rows, (max) => (r) => `
+        <div style="margin-bottom: 6px;">
+          <div style="display: flex; justify-content: space-between; gap: 8px; font-size: 12px;">
+            <span>${escapeText(r.label)} × ${r.qty}</span>
+            <span style="color: var(--color-text-muted);">₹${r.revenue.toLocaleString('en-IN')}</span>
+          </div>
+          ${bar(Math.round((r.measure / max) * 100), 'var(--color-primary)')}
+        </div>`);
+    }
+
+    const funnelEl = document.getElementById('statusFunnelList');
+    if (funnelEl) {
+      const rows = (stats.statusFunnel || []).map((f) => ({ label: f.status, count: Number(f.count) || 0, measure: Number(f.count) || 0 }));
+      funnelEl.innerHTML = panel(rows, (max) => (r) => `
+        <div style="margin-bottom: 6px;">
+          <div style="display: flex; justify-content: space-between; gap: 8px; font-size: 12px;">
+            <span>${escapeText(r.label)}</span><strong>${r.count}</strong>
+          </div>
+          ${bar(Math.round((r.measure / max) * 100), r.label === 'Cancelled' ? 'var(--color-error)' : 'var(--color-primary)')}
+        </div>`);
+    }
+
+    const payEl = document.getElementById('paymentBreakdownBox');
+    if (payEl) {
+      const b = stats.paymentBreakdown || { verified: 0, unverified: 0, untracked: 0 };
+      payEl.innerHTML = `
+        <div style="display: flex; justify-content: space-between; font-size: 13px; padding: 2px 0;"><span>✅ Confirmed</span><strong>${b.verified}</strong></div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px; padding: 2px 0;${b.unverified ? ' color: var(--color-error);' : ''}"><span>⚠️ Awaiting confirmation</span><strong>${b.unverified}</strong></div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px; padding: 2px 0; color: var(--color-text-muted);"><span>— No payment record</span><strong>${b.untracked}</strong></div>
+        ${Number(stats.unverifiedAmount) > 0
+          ? '<div style="font-size: 11px; color: var(--color-error); margin-top: 4px;">₹' + Number(stats.unverifiedAmount).toLocaleString('en-IN') + ' still to confirm in FamPay</div>'
+          : ''}`;
     }
   }
 
@@ -463,45 +577,9 @@
    * the whole history.
    */
   function ordersToCsv(rows) {
-    const cell = (value) => {
-      const s = value === undefined || value === null ? '' : String(value);
-      return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-    };
-    const header = [
-      'order_id', 'placed_on', 'status', 'customer', 'phone', 'city', 'pincode',
-      'delivery_type', 'slot', 'items', 'item_names',
-      'subtotal', 'discount', 'coupon', 'total',
-      'payment_mode', 'payment_verified', 'utr'
-    ];
-
-    const rowCsv = rows.map((o) => {
-      const pricing = o.pricing || {};
-      const payment = o.payment || {};
-      const delivery = o.delivery || {};
-      const placedOn = o.createdAt ? new Date(o.createdAt) : null;
-      return [
-        cell(o.orderId),
-        cell(placedOn && !isNaN(placedOn.getTime()) ? placedOn.toISOString() : ''),
-        cell(o.status),
-        cell(recipientName(o)),
-        cell(recipientPhone(o)),
-        cell(recipientCity(o)),
-        cell(recipientPincode(o)),
-        cell(delivery.type || ''),
-        cell(deliverySlot(o)),
-        cell((o.items || []).length),
-        cell((o.items || []).map(i => `${i.name || 'Item'} x${i.qty || 1}`).join(' | ')),
-        cell(pricing.subtotal || 0),
-        cell(pricing.discount || 0),
-        cell(pricing.couponCode || ''),
-        cell(pricing.total || 0),
-        cell(payment.mode || ''),
-        cell(payment.verified === true ? 'yes' : payment.verified === false ? 'no' : ''),
-        cell(payment.utr || '')
-      ].join(',');
-    });
-
-    return [header.join(',')].concat(rowCsv).join('\n');
+    // One implementation, in admin-service.js, shared with the staff queue: two
+    // copies of a GST-relevant export is two chances to disagree.
+    return window.VrindaAdmin.ordersToCsv(rows);
   }
 
   /** Trigger a browser download of the CSV without touching the network. */
@@ -533,9 +611,7 @@
   function ordersCsvFileName() {
     const from = document.getElementById('orderDateFrom')?.value || '';
     const to = document.getElementById('orderDateTo')?.value || '';
-    if (from && from === to) return 'orders-' + from + '.csv';
-    if (from || to) return 'orders-' + (from || 'start') + '_to_' + (to || 'today') + '.csv';
-    return 'orders-' + new Date().toISOString().slice(0, 10) + '.csv';
+    return window.VrindaAdmin.ordersCsvFileName(from, to);
   }
 
   /* ------------------------------------------------------------- DATE RANGE */
@@ -564,6 +640,108 @@
     renderOrdersTable();
   }
 
+  /* ------------------------------------------------------ FILTERS IN THE URL */
+
+  /**
+   * Read the ledger filters back out of the URL (?q=…&status=…&unverified=1&
+   * from=…&to=…) before the first render, so a bookmarked or messaged view
+   * reopens exactly as it was copied. Anything missing keeps its default.
+   */
+  function restoreOrdersFiltersFromUrl() {
+    let params;
+    try {
+      params = new URLSearchParams(window.location.search || '');
+    } catch (err) {
+      return;   // no usable search string: the shipped defaults are correct
+    }
+    const setValue = (id, value) => {
+      const el = document.getElementById(id);
+      if (el && value) el.value = value;
+    };
+    setValue('orderSearchInput', params.get('q') || '');
+    setValue('orderStatusFilter', params.get('status') || '');
+    setValue('orderDateFrom', params.get('from') || '');
+    setValue('orderDateTo', params.get('to') || '');
+    const unverified = document.getElementById('orderUnverifiedOnly');
+    if (unverified) unverified.checked = params.get('unverified') === '1';
+  }
+
+  /**
+   * Write the current controls back into the URL, defaults omitted so a clean
+   * ledger has a clean address. replaceState keeps the back button working as a
+   * "leave the portal" button rather than a keystroke log.
+   */
+  function syncOrdersFiltersToUrl() {
+    try {
+      const params = new URLSearchParams();
+      const value = (id) => (document.getElementById(id)?.value || '').trim();
+      if (value('orderSearchInput')) params.set('q', value('orderSearchInput'));
+      const status = value('orderStatusFilter');
+      if (status && status !== 'ALL') params.set('status', status);
+      if (document.getElementById('orderUnverifiedOnly')?.checked) params.set('unverified', '1');
+      if (value('orderDateFrom')) params.set('from', value('orderDateFrom'));
+      if (value('orderDateTo')) params.set('to', value('orderDateTo'));
+      const qs = params.toString();
+      const url = window.location.pathname + (qs ? '?' + qs : '') + (window.location.hash || '');
+      if (window.history && typeof window.history.replaceState === 'function') {
+        window.history.replaceState(null, '', url);
+      }
+    } catch (err) {
+      console.warn('Could not save the ledger filters in the URL:', err);
+    }
+  }
+
+  /* ------------------------------------------------------- RECONCILIATION */
+
+  /**
+   * The Orders badge pressed as a button: jump to the ledger showing exactly the
+   * payments it counts. The competing filters are cleared on purpose — a
+   * leftover search term hiding one of those rows would make the badge's number
+   * a lie. Also switches tabs explicitly rather than trusting the click to
+   * bubble.
+   */
+  function focusUnverifiedPayments() {
+    const toggle = document.getElementById('orderUnverifiedOnly');
+    if (toggle) toggle.checked = true;
+    const search = document.getElementById('orderSearchInput');
+    if (search) search.value = '';
+    const status = document.getElementById('orderStatusFilter');
+    if (status) status.value = 'ALL';
+    const fromEl = document.getElementById('orderDateFrom');
+    const toEl = document.getElementById('orderDateTo');
+    if (fromEl) fromEl.value = '';
+    if (toEl) toEl.value = '';
+
+    let ordersTab = null;
+    document.querySelectorAll('.admin-nav-item').forEach((btn) => {
+      if (btn.getAttribute('data-tab') === 'orders') ordersTab = btn;
+    });
+    if (ordersTab && typeof ordersTab.click === 'function') ordersTab.click();
+
+    renderOrdersTable();
+    syncOrdersFiltersToUrl();
+    const ledger = document.getElementById('ordersLedger');
+    if (ledger && typeof ledger.scrollIntoView === 'function') {
+      ledger.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  /**
+   * The banner above the table while the unverified filter is on: how many rows
+   * are in view, what to do with each, and the way back out of the filter.
+   * Hidden outright when the feed is refused — there is nothing to reconcile
+   * against rows the page cannot see.
+   */
+  function syncReconcileBanner(filtered) {
+    const banner = document.getElementById('ordersReconcileBanner');
+    if (!banner) return;
+    const checked = !!document.getElementById('orderUnverifiedOnly')?.checked;
+    const show = checked && !ordersLoadError && !!allOrders.length;
+    banner.style.display = show ? 'flex' : 'none';
+    const countEl = document.getElementById('ordersReconcileCount');
+    if (show && countEl) countEl.textContent = String(filtered.length);
+  }
+
   /* --------------------------------------------------------- ROW SELECTION */
 
   /**
@@ -587,6 +765,18 @@
     if (selectAll) {
       selectAll.checked = ids.length > 0 && selected.length === ids.length;
       selectAll.indeterminate = selected.length > 0 && selected.length < ids.length;
+    }
+
+    // "Confirm payments" only appears when at least one ticked row actually has
+    // a payment waiting — a button that would find nothing to do is a button
+    // that erodes trust in the other one.
+    const verifyBtn = document.getElementById('btnBulkVerify');
+    if (verifyBtn) {
+      const pendingSelected = selected.some((id) => {
+        const order = allOrders.find((o) => o.orderId === id);
+        return order && order.payment && order.payment.verified === false;
+      });
+      verifyBtn.style.display = pendingSelected ? 'inline-flex' : 'none';
     }
   }
 
@@ -672,12 +862,142 @@
     }
   }
 
+  /**
+   * Bulk payment confirmation, for the reconciliation pass after a payout
+   * delay: every ticked order whose payment is still unverified, confirmed one
+   * at a time in sequence so a partial failure is reported per order — the same
+   * contract as Mark Packed. Orders already confirmed are skipped even if they
+   * are ticked.
+   */
+  async function bulkVerifyPayments() {
+    const ids = selectedInView().filter((id) => {
+      const order = allOrders.find((o) => o.orderId === id);
+      return order && order.payment && order.payment.verified === false;
+    });
+    if (!ids.length) {
+      alert('None of the selected orders has a payment waiting to be confirmed.');
+      return;
+    }
+    if (!confirm('Confirm ' + ids.length + ' payment' + (ids.length === 1 ? '' : 's') + '?\n\nOnly after checking each one in your FamPay dashboard (UTR / transaction id).')) return;
+
+    const button = document.getElementById('btnBulkVerify');
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Confirming…';
+    }
+
+    const failures = [];
+    for (const orderId of ids) {
+      try {
+        const res = await window.VrindaAdmin.markPaymentVerified(orderId, 'Confirmed from the ledger bulk action.');
+        if (!res || !res.success) failures.push(orderId + ': ' + ((res && res.error) || 'unknown error'));
+      } catch (err) {
+        failures.push(orderId + ': ' + err.message);
+      }
+    }
+
+    if (button) {
+      button.disabled = false;
+      button.textContent = '✓ Confirm payments';
+    }
+    selectedOrderIds = new Set();
+    renderOrdersTable();
+
+    if (failures.length) {
+      alert('Confirmed ' + (ids.length - failures.length) + ' of ' + ids.length + ' payments.\n\nStill to do:\n' + failures.join('\n'));
+    } else {
+      alert('Confirmed ' + ids.length + ' payment' + (ids.length === 1 ? '' : 's') + '.');
+    }
+  }
+
+  /* --------------------------------------------------------- DETAIL DRAWER */
+
+  // The order the drawer is showing; its Print slip button prints this one.
+  let detailOrderId = null;
+
+  function openOrderDetails(orderId) {
+    const order = allOrders.find((o) => o.orderId === orderId);
+    const modal = document.getElementById('modalOrderDetail');
+    const body = document.getElementById('orderDetailBody');
+    const title = document.getElementById('orderDetailTitle');
+    if (!order || !modal || !body) return;
+
+    detailOrderId = orderId;
+    if (title) title.textContent = orderId + ' — ' + order.status;
+
+    body.innerHTML = orderDetailMarkup(order);
+    modal.style.display = 'flex';
+  }
+
+  /**
+   * The drawer's contents: items, money, payment proof, gift note and delivery
+   * in one panel, so an operator never has to reconcile the checklist against
+   * the CSV to answer a customer. Says nothing rather than the wrong thing
+   * about fields a given order does not carry.
+   */
+  function orderDetailMarkup(order) {
+    const pricing = order.pricing || {};
+    const payment = order.payment || {};
+    const gifting = order.gifting || {};
+    const shape = window.VrindaAdmin.orderShape;
+    const isLocal = (order.delivery || {}).type === 'local';
+    const line = (label, value) => `
+      <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 2px 0;">
+        <span style="color: var(--color-text-muted);">${label}</span><strong style="text-align: right;">${value}</strong>
+      </div>`;
+
+    return `
+      <div style="background: var(--color-bg-subtle); border-radius: var(--radius-md); padding: 10px 12px;">
+        ${line('Placed', escapeText(formatDate(order.createdAt)))}
+        ${line('Status', `<span class="badge ${getStatusBadgeClass(order.status)}">${escapeText(order.status)}</span>`)}
+        ${line('Recipient', escapeText(shape.recipientName(order)) + (shape.recipientPhone(order) ? ' · ' + escapeText(shape.recipientPhone(order)) : ''))}
+        ${line('Destination', escapeText(shape.recipientCity(order)) + ' ' + escapeText(shape.recipientPincode(order)) + ' · ' + escapeText(shape.deliverySlot(order)))}
+      </div>
+      <div>
+        <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-muted); margin-bottom: 4px;">Items</div>
+        ${(order.items || []).length
+          ? (order.items || []).map((item) => `
+              <div style="display: flex; justify-content: space-between; font-size: 13px; padding: 2px 0;">
+                <span>${escapeText(shape.itemName(item))} × ${shape.itemQty(item)}</span>
+              </div>`).join('')
+          : '<div style="font-size: 13px; color: var(--color-text-muted);">No line items recorded.</div>'}
+      </div>
+      <div style="background: var(--color-bg-subtle); border-radius: var(--radius-md); padding: 10px 12px;">
+        ${line('Subtotal', '₹' + Number(pricing.subtotal || 0).toLocaleString('en-IN'))}
+        ${pricing.discount ? line('Discount' + (pricing.couponCode ? ' (' + escapeText(pricing.couponCode) + ')' : ''), '-₹' + Number(pricing.discount).toLocaleString('en-IN')) : ''}
+        ${line('Total', '₹' + Number(pricing.total || 0).toLocaleString('en-IN'))}
+        ${line('Payment', escapeText(payment.mode || 'Unknown') + (payment.status ? ' · ' + escapeText(payment.status) : ''))}
+        ${payment.utr ? line('UTR', escapeText(payment.utr)) : ''}
+        ${payment.verified === false
+          ? '<div style="font-size: 12px; color: var(--color-error); margin-top: 4px;">⚠️ Not yet confirmed in FamPay — press ✓ Mark Paid once it matches.</div>'
+          : payment.verified === true
+            ? '<div style="font-size: 12px; color: var(--color-success); margin-top: 4px;">✅ Payment confirmed</div>'
+            : ''}
+        ${payment.simulated ? '<div style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;">🧪 Rehearsal payment — no money was taken.</div>' : ''}
+      </div>
+      ${gifting.giftMessage || gifting.notes || gifting.isSurprise ? `
+        <div style="background: var(--color-bg-subtle); border-radius: var(--radius-md); padding: 10px 12px;">
+          ${gifting.isSurprise ? '<div style="font-size: 12px; font-weight: 700; margin-bottom: 4px;">🤫 Surprise order — do not contact the recipient.</div>' : ''}
+          ${gifting.giftMessage ? '<div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 4px;">Gift message</div><div style="font-size: 13px;">' + escapeText(gifting.giftMessage) + '</div>' : ''}
+          ${gifting.notes ? '<div style="font-size: 12px; color: var(--color-text-muted); margin-top: 6px;">Packing / delivery notes: ' + escapeText(gifting.notes) + '</div>' : ''}
+        </div>` : ''}
+      <div style="background: var(--color-bg-subtle); border-radius: var(--radius-md); padding: 10px 12px;">
+        ${line('Delivery', isLocal ? '🛵 Local Express' : '📦 Courier Partner')}
+        ${isLocal ? line('Rider', escapeText(order.delivery?.riderName || 'Not assigned')) : line('AWB', escapeText(order.delivery?.trackingNumber || 'Not generated'))}
+        ${order.delivery?.eta ? line('ETA', escapeText(order.delivery.eta)) : ''}
+        ${order.cancellationStatus === 'requested'
+          ? '<div style="font-size: 12px; color: var(--color-error); margin-top: 6px;">⚠️ Cancellation requested — review it in the Cancellations tab.</div>'
+          : ''}
+      </div>`;
+  }
+
   /* ----------------------------------------------------------- FULL ORDERS TABLE */
   function renderOrdersTable() {
     const tbody = document.getElementById('ordersTbody');
     if (!tbody) return;
 
     const filtered = filterOrders();
+    syncReconcileBanner(filtered);
 
     if (ordersLoadError) {
       tbody.innerHTML = `
@@ -715,7 +1035,7 @@
       const isLocal = o.delivery?.type === 'local';
       const isSelected = selectedOrderIds.has(o.orderId);
       return `
-        <tr>
+        <tr data-order-id="${escAttr(o.orderId)}" style="cursor: pointer;" title="Click for the full order details">
           <td>
             <input type="checkbox" class="js-row-select" data-order-id="${escAttr(o.orderId)}" ${isSelected ? 'checked' : ''}
                    title="Select ${escAttr(o.orderId)} for a bulk action" style="accent-color: var(--color-primary);">
@@ -799,6 +1119,17 @@
         if (!confirm('Mark the payment on order ' + orderId + ' as received?\n\nOnly after confirming it in your FamPay dashboard (UTR / transaction id).')) return;
         const res = await window.VrindaAdmin.markPaymentVerified(orderId, 'Confirmed manually in the admin portal.');
         alert(res.success ? 'Payment marked as verified.' : 'Could not update the order: ' + res.error);
+      });
+    });
+
+    // A row opens the detail drawer. A click that landed on a control inside it
+    // (link, button, tick box) belongs to that control instead.
+    tbody.querySelectorAll('tr').forEach((row) => {
+      if (!row.getAttribute('data-order-id')) return;
+      row.addEventListener('click', (event) => {
+        const target = event && event.target;
+        if (target && typeof target.closest === 'function' && target.closest('a, button, input, select, label')) return;
+        openOrderDetails(row.getAttribute('data-order-id'));
       });
     });
 
@@ -2001,37 +2332,35 @@
       escapeText(code) + ' −₹' + discount.toLocaleString('en-IN') + '</div>';
   }
 
+  // Order-shape fallbacks now live in one place (admin-service orderShape), so
+  // the ledger, the staff queue and the CSV export cannot spell a customer's
+  // name differently.
   function recipientName(order) {
-    const legacy = order.shippingAddress || {};
-    return (order.customer && order.customer.name) || legacy.fullName || legacy.name || 'Customer';
+    return window.VrindaAdmin.orderShape.recipientName(order);
   }
 
   function recipientPhone(order) {
-    const legacy = order.shippingAddress || {};
-    return (order.customer && order.customer.phone) || legacy.phone || '';
+    return window.VrindaAdmin.orderShape.recipientPhone(order);
   }
 
   function recipientCity(order) {
-    const legacy = order.shippingAddress || {};
-    return (order.shipping && order.shipping.city) || legacy.city || 'India';
+    return window.VrindaAdmin.orderShape.recipientCity(order);
   }
 
   function recipientPincode(order) {
-    const legacy = order.shippingAddress || {};
-    return (order.shipping && order.shipping.pincode) || legacy.pincode || '';
+    return window.VrindaAdmin.orderShape.recipientPincode(order);
   }
 
   function deliverySlot(order) {
-    const legacy = order.shippingAddress || {};
-    return (order.gifting && order.gifting.deliverySlot) || legacy.deliverySlot || 'Standard Delivery';
+    return window.VrindaAdmin.orderShape.deliverySlot(order);
   }
 
   function itemQty(item) {
-    return (item && (item.qty || item.quantity)) || 1;
+    return window.VrindaAdmin.orderShape.itemQty(item);
   }
 
   function itemName(item) {
-    return (item && (item.name || item.title)) || 'Item';
+    return window.VrindaAdmin.orderShape.itemName(item);
   }
 
   /* ------------------------------------------------------------- UTILITIES */

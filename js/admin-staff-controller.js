@@ -18,6 +18,9 @@
   let staffOrdersFeedPending = false;
   let staffOrdersLoadError = null;
   let staffOrdersWatchdog = null;
+  // Bulk selection, keyed by order id so it survives the re-render every
+  // snapshot triggers (same contract as the Super Admin ledger).
+  let selectedStaffOrderIds = new Set();
 
   async function initStaff() {
     if (!window.VrindaAuth) return;
@@ -102,6 +105,23 @@
     const statusFilter = document.getElementById('staffStatusFilter');
     searchInput?.addEventListener('input', renderStaffOrders);
     statusFilter?.addEventListener('change', renderStaffOrders);
+
+    // Period filters, CSV export and bulk actions — the same controls the Super
+    // Admin ledger has, so today's packing list or a handover sheet can be cut
+    // from this portal too.
+    document.getElementById('staffDateFrom')?.addEventListener('change', renderStaffOrders);
+    document.getElementById('staffDateTo')?.addEventListener('change', renderStaffOrders);
+    document.getElementById('staffBtnThisMonth')?.addEventListener('click', setThisMonthRange);
+    document.getElementById('staffBtnClearDates')?.addEventListener('click', clearStaffDateRange);
+    document.getElementById('staffExportOrders')?.addEventListener('click', downloadStaffOrdersCsv);
+    // The select-all box lives in the table head, so it binds once here; the
+    // per-row boxes are (re)bound with every render.
+    document.getElementById('staffSelectAll')?.addEventListener('change', (event) => {
+      setAllStaffSelection(!!(event && event.target && event.target.checked));
+    });
+    document.getElementById('staffBulkMarkPacked')?.addEventListener('click', staffBulkMarkPacked);
+    document.getElementById('staffBulkPrint')?.addEventListener('click', staffBulkPrintOrders);
+    document.getElementById('staffBulkClear')?.addEventListener('click', clearStaffSelection);
   }
 
   /** (Re)subscribe to the orders feed; the failure row's Retry calls this again. */
@@ -115,6 +135,9 @@
     staffOrdersLoadError = null;
     disarmStaffOrdersWatchdog();
     allOrders = orders;
+    // An order that has left the feed must not keep counting towards a bulk action.
+    const present = new Set(orders.map((o) => o.orderId));
+    selectedStaffOrderIds.forEach((id) => { if (!present.has(id)) selectedStaffOrderIds.delete(id); });
     renderStaffOrders();
   }
 
@@ -123,6 +146,9 @@
     staffOrdersFeedPending = false;
     staffOrdersLoadError = describeFeedFailure('orders', err);
     renderStaffOrders();
+    // Nothing is selectable while the feed is refused, so the bulk bar must not
+    // sit there offering actions on rows that are no longer on screen.
+    syncStaffSelectionUi([]);
   }
 
   function disarmStaffOrdersWatchdog() {
@@ -173,17 +199,40 @@
     ));
   }
 
-  /* ---------------------------------------------------- ORDERS TABLE */
-  function renderStaffOrders() {
-    const tbody = document.getElementById('staffOrdersTbody');
-    if (!tbody) return;
+  /** The same, for a value that ends up inside a double-quoted HTML attribute. */
+  function escAttr(value) {
+    return escapeText(value).replace(/`/g, '&#96;');
+  }
 
+  /* ------------------------------------------------- FILTERS AND DATE RANGE */
+
+  /**
+   * The rows the queue is currently showing. Extracted from renderStaffOrders so
+   * the CSV export always matches what is on screen — the export is the
+   * handover sheet, and a handover sheet that disagrees with the screen is a
+   * lost order. Cancelled orders are out: this is a workflow queue, not the
+   * ledger.
+   */
+  function filterStaffOrders() {
     const query = (document.getElementById('staffSearchInput')?.value || '').toLowerCase().trim();
     const statusFilter = document.getElementById('staffStatusFilter')?.value || 'ALL';
+    const fromValue = document.getElementById('staffDateFrom')?.value || '';
+    const toValue = document.getElementById('staffDateTo')?.value || '';
 
     let filtered = allOrders.filter(o => o.status !== 'Cancelled');
     if (statusFilter !== 'ALL') {
       filtered = filtered.filter(o => o.status === statusFilter);
+    }
+
+    // Date placed, inclusive of both ends — the same rule as the Super Admin
+    // ledger, so both portals answer "today" with the same rows.
+    if (fromValue || toValue) {
+      const fromMs = fromValue ? new Date(fromValue + 'T00:00:00').getTime() : -Infinity;
+      const toMs = toValue ? new Date(toValue + 'T23:59:59.999').getTime() : Infinity;
+      filtered = filtered.filter((o) => {
+        const at = Number(o.createdAt) || Number(o.placedAt) || 0;
+        return at >= fromMs && at <= toMs;
+      });
     }
 
     if (query) {
@@ -195,10 +244,165 @@
       });
     }
 
+    return filtered;
+  }
+
+  /** yyyy-mm-dd from local parts: toISOString() would shift the day for IST. */
+  function toInputDate(date) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+  }
+
+  /** First of this month up to today: the window the shift starts from. */
+  function setThisMonthRange() {
+    const now = new Date();
+    const fromEl = document.getElementById('staffDateFrom');
+    const toEl = document.getElementById('staffDateTo');
+    if (fromEl) fromEl.value = toInputDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    if (toEl) toEl.value = toInputDate(now);
+    renderStaffOrders();
+  }
+
+  function clearStaffDateRange() {
+    const fromEl = document.getElementById('staffDateFrom');
+    const toEl = document.getElementById('staffDateTo');
+    if (fromEl) fromEl.value = '';
+    if (toEl) toEl.value = '';
+    renderStaffOrders();
+  }
+
+  /** Same export as the ledger's, through the shared service implementation. */
+  function downloadStaffOrdersCsv() {
+    const rows = filterStaffOrders();
+    if (!rows.length) {
+      alert('There is nothing to export in the current view. Clear the search or filters and try again.');
+      return;
+    }
+    const csv = window.VrindaAdmin.ordersToCsv(rows);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = window.VrindaAdmin.ordersCsvFileName(
+      document.getElementById('staffDateFrom')?.value || '',
+      document.getElementById('staffDateTo')?.value || ''
+    );
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // Revoke on the next tick so Safari has time to start the download.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  /* --------------------------------------------------------- ROW SELECTION */
+
+  /** The ticked orders that are still in view: a bulk action acts on the screen. */
+  function staffSelectedInView() {
+    const visible = new Set(filterStaffOrders().map((o) => o.orderId));
+    return Array.from(selectedStaffOrderIds).filter((id) => visible.has(id));
+  }
+
+  function syncStaffSelectionUi(visibleRows) {
+    const ids = (visibleRows || filterStaffOrders()).map((o) => o.orderId);
+    const selected = ids.filter((id) => selectedStaffOrderIds.has(id));
+    const bar = document.getElementById('staffBulkBar');
+    const countEl = document.getElementById('staffSelectedCount');
+    const selectAll = document.getElementById('staffSelectAll');
+
+    if (countEl) countEl.textContent = String(selected.length);
+    if (bar) bar.style.display = selected.length ? 'flex' : 'none';
+    if (selectAll) {
+      selectAll.checked = ids.length > 0 && selected.length === ids.length;
+      selectAll.indeterminate = selected.length > 0 && selected.length < ids.length;
+    }
+  }
+
+  function toggleStaffRowSelection(orderId, isSelected) {
+    if (!orderId) return;
+    if (isSelected) selectedStaffOrderIds.add(orderId);
+    else selectedStaffOrderIds.delete(orderId);
+    syncStaffSelectionUi();
+  }
+
+  function setAllStaffSelection(isSelected) {
+    filterStaffOrders().forEach((o) => {
+      if (isSelected) selectedStaffOrderIds.add(o.orderId);
+      else selectedStaffOrderIds.delete(o.orderId);
+    });
+    renderStaffOrders();   // re-render so the row boxes follow the header box
+  }
+
+  function clearStaffSelection() {
+    selectedStaffOrderIds = new Set();
+    renderStaffOrders();
+  }
+
+  /* --------------------------------------------------------- BULK ACTIONS */
+
+  /**
+   * Bulk "Mark Packed" for the queue: one write per order, in sequence, so a
+   * partial failure is reported per order rather than leaving whoever is
+   * packing to guess which ones went through. Each write goes through the order
+   * service, which keeps the timeline and the tracking page in step.
+   */
+  async function staffBulkMarkPacked() {
+    const ids = staffSelectedInView();
+    if (!ids.length) return;
+    if (!confirm('Mark ' + ids.length + ' order' + (ids.length === 1 ? '' : 's') + ' as Packed?\n\nEach order keeps its own timeline entry, and the customer\'s tracking page updates.')) return;
+
+    const button = document.getElementById('staffBulkMarkPacked');
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Marking…';
+    }
+
+    const failures = [];
+    for (const orderId of ids) {
+      try {
+        const res = await window.VrindaOrders.updateOrderStatus(orderId, 'Packed', 'Bulk action from the staff queue');
+        if (!res || !res.success) failures.push(orderId + ': ' + ((res && res.error) || 'unknown error'));
+      } catch (err) {
+        failures.push(orderId + ': ' + err.message);
+      }
+    }
+
+    if (button) {
+      button.disabled = false;
+      button.textContent = '📦 Mark Packed';
+    }
+    selectedStaffOrderIds = new Set();
+    renderStaffOrders();
+
+    if (failures.length) {
+      alert('Marked ' + (ids.length - failures.length) + ' of ' + ids.length + ' orders as Packed.\n\nStill to do:\n' + failures.join('\n'));
+    } else {
+      alert('Marked ' + ids.length + ' order' + (ids.length === 1 ? '' : 's') + ' as Packed.');
+    }
+  }
+
+  /** One packing slip per ticked order, in a single print job. */
+  function staffBulkPrintOrders() {
+    const ids = staffSelectedInView();
+    const orders = allOrders.filter((o) => ids.includes(o.orderId));
+    if (!orders.length) return;
+    if (!window.VrindaPrint || typeof window.VrindaPrint.printOrders !== 'function') {
+      alert('The print service did not load on this page. Check that js/print-service.js is listed before the controller script.');
+      return;
+    }
+    window.VrindaPrint.printOrders(orders);
+  }
+
+  /* ---------------------------------------------------- ORDERS TABLE */
+  function renderStaffOrders() {
+    const tbody = document.getElementById('staffOrdersTbody');
+    if (!tbody) return;
+
+    const filtered = filterStaffOrders();
+
     if (staffOrdersLoadError) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="5" style="text-align: center; padding: 2rem;">
+          <td colspan="6" style="text-align: center; padding: 2rem;">
             <div style="color: var(--color-text-muted);">${escapeText(staffOrdersLoadError)}</div>
             <button class="btn btn-xs btn-primary js-retry-orders" style="margin-top: 0.75rem;">↻ Retry</button>
           </td>
@@ -210,25 +414,30 @@
     // "No active orders matching criteria." on a queue that never loaded is what
     // sent people looking for a filter bug. Say which of the three it is.
     if (!allOrders.length && staffOrdersFeedPending) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">Waiting for the orders feed…</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">Waiting for the orders feed…</td></tr>`;
       return;
     }
 
     if (!allOrders.length) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">No orders yet — new orders appear here live as soon as they are placed.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">No orders yet — new orders appear here live as soon as they are placed.</td></tr>`;
       return;
     }
 
     if (!filtered.length) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">No active orders matching criteria.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">No active orders matching criteria.</td></tr>`;
       return;
     }
 
     tbody.innerHTML = filtered.map(o => {
       const waLink = window.VrindaOrders.getWhatsAppAdminLink(o, 'admin-contact');
       const isLocal = o.delivery?.type === 'local';
+      const isSelected = selectedStaffOrderIds.has(o.orderId);
       return `
-        <tr>
+        <tr data-order-id="${escAttr(o.orderId)}">
+          <td>
+            <input type="checkbox" class="js-row-select" data-order-id="${escAttr(o.orderId)}" ${isSelected ? 'checked' : ''}
+                   title="Select ${escAttr(o.orderId)} for a bulk action" style="accent-color: var(--color-primary);">
+          </td>
           <td>
             <strong>${o.orderId}</strong>
             <div style="font-size: 11px; color: var(--color-text-muted);">${formatDate(o.createdAt)}</div>
@@ -270,6 +479,12 @@
       `;
     }).join('');
 
+    // Row ticks feed the bulk bar. The rows are rebuilt on every snapshot, so
+    // the boxes are bound with each render rather than once.
+    tbody.querySelectorAll('.js-row-select').forEach((box) => {
+      box.addEventListener('change', () => toggleStaffRowSelection(box.getAttribute('data-order-id'), box.checked));
+    });
+    syncStaffSelectionUi(filtered);
     bindActionButtons(tbody);
   }
   /* ------------------------------------------------- CANCELLATIONS TABLE */
@@ -572,38 +787,34 @@
 
   /* ------------------------------------------------- ORDER SHAPE UTILITIES */
   // Canonical order shape (VrindaOrders.buildOrder) exposes customer / shipping / gifting.
-  // `shippingAddress` is only kept as a fallback for early-draft rows in the database.
+  // The fallbacks now live in admin-service orderShape, shared with the Super
+  // Admin ledger, so both portals cannot spell a customer's name differently.
   function recipientName(order) {
-    const legacy = order.shippingAddress || {};
-    return (order.customer && order.customer.name) || legacy.fullName || legacy.name || 'Customer';
+    return window.VrindaAdmin.orderShape.recipientName(order);
   }
 
   function recipientPhone(order) {
-    const legacy = order.shippingAddress || {};
-    return (order.customer && order.customer.phone) || legacy.phone || '';
+    return window.VrindaAdmin.orderShape.recipientPhone(order);
   }
 
   function recipientCity(order) {
-    const legacy = order.shippingAddress || {};
-    return (order.shipping && order.shipping.city) || legacy.city || 'India';
+    return window.VrindaAdmin.orderShape.recipientCity(order);
   }
 
   function recipientPincode(order) {
-    const legacy = order.shippingAddress || {};
-    return (order.shipping && order.shipping.pincode) || legacy.pincode || '';
+    return window.VrindaAdmin.orderShape.recipientPincode(order);
   }
 
   function deliverySlot(order) {
-    const legacy = order.shippingAddress || {};
-    return (order.gifting && order.gifting.deliverySlot) || legacy.deliverySlot || 'Standard';
+    return window.VrindaAdmin.orderShape.deliverySlot(order);
   }
 
   function itemQty(item) {
-    return (item && (item.qty || item.quantity)) || 1;
+    return window.VrindaAdmin.orderShape.itemQty(item);
   }
 
   function itemName(item) {
-    return (item && (item.name || item.title)) || 'Item';
+    return window.VrindaAdmin.orderShape.itemName(item);
   }
 
   /* ------------------------------------------------------------- UTILITIES */

@@ -77,6 +77,41 @@
               <option value="Out For Delivery">Out For Delivery</option>
               <option value="Delivered">Delivered</option>
             </select>
+            <button class="btn btn-outline btn-sm" id="staffExportOrders" style="font-size: 13px; white-space: nowrap;"
+                    title="Download the rows currently shown, filters included, as a spreadsheet-ready CSV">
+              ⬇ Export CSV
+            </button>
+
+            <!-- Date range, export and bulk actions mirror the Super Admin ledger:
+                 a staff member can cut today's packing list or a handover sheet
+                 without asking for the owner's login. -->
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; width: 100%;">
+              <span style="font-size: 12px; color: var(--color-text-muted); white-space: nowrap;">Date placed</span>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-text-muted); white-space: nowrap;">
+                From
+                <input type="date" id="staffDateFrom" class="form-input" style="padding: 0.35rem 0.6rem; font-size: 13px;">
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-text-muted); white-space: nowrap;">
+                To
+                <input type="date" id="staffDateTo" class="form-input" style="padding: 0.35rem 0.6rem; font-size: 13px;">
+              </label>
+              <button class="btn btn-xs btn-glass" id="staffBtnThisMonth"
+                      title="Set the range to the first of this month up to today">This month</button>
+              <button class="btn btn-xs btn-glass" id="staffBtnClearDates"
+                      title="Clear the date range and show every active order again">Clear dates</button>
+            </div>
+
+            <!-- Bulk actions appear once a row is ticked. -->
+            <div id="staffBulkBar" style="display: none; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%; border-top: 1px solid var(--color-border-subtle); padding-top: 0.6rem;">
+              <span style="font-size: 12px; font-weight: 600; color: var(--color-primary-dark);">
+                <span id="staffSelectedCount">0</span> selected
+              </span>
+              <button class="btn btn-xs btn-primary" id="staffBulkMarkPacked"
+                      title="Set every selected order to Packed, one at a time">📦 Mark Packed</button>
+              <button class="btn btn-xs btn-outline" id="staffBulkPrint"
+                      title="Print one packing slip per selected order (gift notes included)">🖨 Print slips</button>
+              <button class="btn btn-xs btn-glass" id="staffBulkClear">Clear selection</button>
+            </div>
           </div>
         </div>
 
@@ -85,6 +120,10 @@
             <table class="admin-table">
               <thead>
                 <tr>
+                  <th style="width: 34px;">
+                    <input type="checkbox" id="staffSelectAll" title="Select every order in view"
+                           style="accent-color: var(--color-primary);">
+                  </th>
                   <th>Order ID</th>
                   <th>Customer &amp; Recipient</th>
                   <th>Delivery Preference</th>
@@ -93,7 +132,7 @@
                 </tr>
               </thead>
               <tbody id="staffOrdersTbody">
-                <tr><td colspan="5" style="text-align: center; padding: 2rem;">Loading active orders...</td></tr>
+                <tr><td colspan="6" style="text-align: center; padding: 2rem;">Loading active orders...</td></tr>
               </tbody>
             </table>
           </div>

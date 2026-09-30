@@ -503,6 +503,106 @@
       }
     },
 
+    /* ------------------------------------------- SHARED ORDER SHAPE + CSV */
+
+    /**
+     * The order-shape fallbacks every portal renders with. `customer` /
+     * `shipping` / `gifting` are canonical, but `shippingAddress` survives on
+     * early-draft rows, so both spellings are honoured. Living here (rather than
+     * copied into each controller) is what keeps the ledger, the staff queue and
+     * the CSV export agreeing on how a customer's name reads.
+     */
+    orderShape: {
+      recipientName: function (order) {
+        const legacy = order.shippingAddress || {};
+        return (order.customer && order.customer.name) || legacy.fullName || legacy.name || 'Customer';
+      },
+      recipientPhone: function (order) {
+        const legacy = order.shippingAddress || {};
+        return (order.customer && order.customer.phone) || legacy.phone || '';
+      },
+      recipientCity: function (order) {
+        const legacy = order.shippingAddress || {};
+        return (order.shipping && order.shipping.city) || legacy.city || 'India';
+      },
+      recipientPincode: function (order) {
+        const legacy = order.shippingAddress || {};
+        return (order.shipping && order.shipping.pincode) || legacy.pincode || '';
+      },
+      deliverySlot: function (order) {
+        const legacy = order.shippingAddress || {};
+        return (order.gifting && order.gifting.deliverySlot) || legacy.deliverySlot || 'Standard Delivery';
+      },
+      itemQty: function (item) {
+        return (item && (item.qty || item.quantity)) || 1;
+      },
+      itemName: function (item) {
+        return (item && (item.name || item.title)) || 'Item';
+      }
+    },
+
+    /**
+     * Spreadsheet-ready export of the rows it is handed, following the newsletter
+     * export's conventions (newsletterToCsv). Amounts stay plain numbers so
+     * Sheets can total a column, and any cell that could contain a comma, quote
+     * or newline is quoted. Shared by the Super Admin ledger and the staff queue:
+     * the monthly GST record, courier handover sheets and FamPay reconciliation
+     * must not depend on which portal produced the file.
+     */
+    ordersToCsv: function (rows) {
+      const shape = this.orderShape;
+      const cell = (value) => {
+        const s = value === undefined || value === null ? '' : String(value);
+        return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      };
+      const header = [
+        'order_id', 'placed_on', 'status', 'customer', 'phone', 'city', 'pincode',
+        'delivery_type', 'slot', 'items', 'item_names',
+        'subtotal', 'discount', 'coupon', 'total',
+        'payment_mode', 'payment_verified', 'utr'
+      ];
+
+      const rowCsv = (rows || []).map((o) => {
+        const pricing = o.pricing || {};
+        const payment = o.payment || {};
+        const delivery = o.delivery || {};
+        const placedOn = o.createdAt ? new Date(o.createdAt) : null;
+        return [
+          cell(o.orderId),
+          cell(placedOn && !isNaN(placedOn.getTime()) ? placedOn.toISOString() : ''),
+          cell(o.status),
+          cell(shape.recipientName(o)),
+          cell(shape.recipientPhone(o)),
+          cell(shape.recipientCity(o)),
+          cell(shape.recipientPincode(o)),
+          cell(delivery.type || ''),
+          cell(shape.deliverySlot(o)),
+          cell((o.items || []).length),
+          cell((o.items || []).map(i => `${i.name || 'Item'} x${i.qty || 1}`).join(' | ')),
+          cell(pricing.subtotal || 0),
+          cell(pricing.discount || 0),
+          cell(pricing.couponCode || ''),
+          cell(pricing.total || 0),
+          cell(payment.mode || ''),
+          cell(payment.verified === true ? 'yes' : payment.verified === false ? 'no' : ''),
+          cell(payment.utr || '')
+        ].join(',');
+      });
+
+      return [header.join(',')].concat(rowCsv).join('\n');
+    },
+
+    /**
+     * The export's filename, so a month's file is named after the month rather
+     * than after the day it happened to be downloaded:
+     * orders-2026-09-01_to_2026-09-30.csv.
+     */
+    ordersCsvFileName: function (from, to) {
+      if (from && from === to) return 'orders-' + from + '.csv';
+      if (from || to) return 'orders-' + (from || 'start') + '_to_' + (to || 'today') + '.csv';
+      return 'orders-' + new Date().toISOString().slice(0, 10) + '.csv';
+    },
+
     /* --------------------------------------------------------- ANALYTICS & STATS */
 
     computeStats: function (orders, users, reviews) {
@@ -550,7 +650,56 @@
         revenue7: sumOf(week),
         orders7: week.length,
         revenue30: sumOf(month),
-        orders30: month.length
+        orders30: month.length,
+
+        // Money still waiting for a human, in rupees: the size of the
+        // reconciliation job behind the Orders badge, not just its row count.
+        unverifiedAmount: sumOf(validOrders.filter(o => o.payment && o.payment.verified === false)),
+
+        // Where every order is sitting right now, in timeline order. Cancelled
+        // is counted too — a cancellation disappearing out of the funnel is
+        // exactly what an owner watches for. Zero-count steps are dropped so the
+        // panel reads as "where the orders are", not an empty form.
+        statusFunnel: (function () {
+          const steps = [
+            'Order Placed', 'Payment Confirmed', 'Awaiting Customization',
+            'Customer Contacted', 'Photos Received', 'Customization Confirmed',
+            'Production Started', 'Packed', 'Assigned To Delivery',
+            'Out For Delivery', 'Delivered', 'Cancelled'
+          ];
+          return steps
+            .map((status) => ({ status: status, count: ords.filter((o) => o.status === status).length }))
+            .filter((row) => row.count > 0);
+        })(),
+
+        // Best sellers: quantity first (the shelf decision is "which hamper do I
+        // pack more of"), money as the tiebreak. Cancelled orders are out — a
+        // refund is not a sale.
+        topProducts: (function () {
+          const tally = {};
+          validOrders.forEach((o) => (Array.isArray(o.items) ? o.items : []).forEach((item) => {
+            const name = (item && (item.name || item.title)) || 'Unnamed item';
+            const qty = Number((item && (item.qty || item.quantity)) || 1);
+            const price = Number((item && item.price) || 0);
+            const entry = tally[name] || (tally[name] = { name: name, qty: 0, revenue: 0 });
+            entry.qty += qty;
+            entry.revenue += qty * price;
+          }));
+          return Object.keys(tally)
+            .map((key) => tally[key])
+            .sort((a, b) => b.qty - a.qty || b.revenue - a.revenue)
+            .slice(0, 5);
+        })(),
+
+        // Three-way payment truth: confirmed, waiting for a human, or no record
+        // at all (draft/legacy rows). Only the middle bucket is actionable; the
+        // `unverified` count mirrors `unverifiedPayments` above on purpose, so
+        // the badge and the dashboard panel can never disagree.
+        paymentBreakdown: {
+          verified: validOrders.filter(o => o.payment && o.payment.verified === true).length,
+          unverified: validOrders.filter(o => o.payment && o.payment.verified === false).length,
+          untracked: validOrders.filter(o => !o.payment || (o.payment.verified !== true && o.payment.verified !== false)).length
+        }
       };
     },
 

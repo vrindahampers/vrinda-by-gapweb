@@ -213,7 +213,13 @@ async function runPortal(key) {
       'ordersSelectAll', 'ordersBulkBar', 'ordersSelectedCount',
       'btnBulkMarkPacked', 'btnBulkPrint', 'btnBulkClear', 'ordersBadge',
       'statRevenueToday', 'statOrdersToday', 'statRevenue7', 'statOrders7',
-      'statRevenue30', 'statOrders30'
+      'statRevenue30', 'statOrders30',
+      // Reconciliation, the detail drawer and the insights panels.
+      'ordersReconcileBanner', 'ordersReconcileCount', 'btnClearUnverifiedFilter',
+      'btnBulkVerify', 'ordersLedger',
+      'modalOrderDetail', 'orderDetailTitle', 'orderDetailBody',
+      'btnOrderDetailPrint', 'btnOrderDetailClose', 'btnOrderDetailCloseX',
+      'topProductsList', 'statusFunnelList', 'paymentBreakdownBox'
     ];
     const missing = wiredIds.filter((id) => markup.indexOf('id="' + id + '"') === -1);
     check('every new ledger control exists in the page markup',
@@ -223,7 +229,7 @@ async function runPortal(key) {
     // is exactly the kind of edit that silently misaligns a ledger.
     const ordersThead = (markup.split('id="ordersTbody"')[0].match(/<thead>[\s\S]*?<\/thead>/g) || []).pop() || '';
     const headerCells = (ordersThead.match(/<th[ >]/g) || []).length;
-    const firstRow = (tbody().split('<tr>')[1] || '').split('</tr>')[0];
+    const firstRow = (tbody().split('<tr')[1] || '').split('</tr>')[0];
     const rowCells = (firstRow.match(/<td[ >]/g) || []).length;
     check('the ledger row still has one cell per header column',
       headerCells === 7 && rowCells === headerCells,
@@ -264,6 +270,24 @@ async function runPortal(key) {
     search.value = '';
     search.dispatch('input');
 
+    /* Debounce and the view in the URL ------------------------------------- */
+    const beforeTyping = tbody();
+    search.value = 'zzzz-no-match';
+    search.dispatch('input');
+    check('typing waits for a pause instead of rebuilding the ledger per keystroke',
+      tbody() === beforeTyping
+      && runtime.timers.some((t) => t.ms === 250 && !t.cleared),
+      '250ms timers: ' + runtime.timers.filter((t) => t.ms === 250).length);
+    portal.fireTimers(250);
+    check('the pause applies the search and saves the view in the URL',
+      !tbody().includes('VRH-260928-ZZZZ')
+      && String(runtime.urlChanges[runtime.urlChanges.length - 1] || '').includes('q=zzzz-no-match'),
+      runtime.urlChanges[runtime.urlChanges.length - 1]);
+    search.value = '';
+    search.dispatch('change');
+    check('change applies the search immediately, without waiting out the timer',
+      tbody().includes('VRH-260928-ZZZZ'), tbody().slice(0, 100));
+
     /* Period performance and the Orders badge ------------------------------ */
     const cardText = (id) => portal.document.getElementById(id).textContent;
     check('fills the period revenue cards from the snapshot',
@@ -278,6 +302,94 @@ async function runPortal(key) {
     check('puts the unverified payment count on the Orders tab',
       badge.style.display === 'inline-flex' && badge.textContent === '1',
       badge.textContent + ' (' + badge.style.display + ')');
+
+    /* Dashboard insights ---------------------------------------------------- */
+    const topList = portal.document.getElementById('topProductsList').innerHTML;
+    check('the best sellers panel lists what actually sold, cancelled items out',
+      topList.includes('Celebration Box') && topList.includes('Diwali Delight')
+      && !topList.includes('Thank You Hamper'),
+      topList.replace(/\s+/g, ' ').slice(0, 150));
+    const funnelList = portal.document.getElementById('statusFunnelList').innerHTML;
+    check('the order funnel counts every status in the feed',
+      ['Delivered', 'Packed', 'Payment Confirmed', 'Cancelled'].every((s) => funnelList.includes(s)),
+      funnelList.replace(/\s+/g, ' ').slice(0, 150));
+    const payBox = portal.document.getElementById('paymentBreakdownBox').innerHTML;
+    check('the payment panel splits confirmed from waiting, with the money at stake',
+      payBox.includes('Awaiting confirmation') && payBox.includes('Confirmed')
+      && payBox.includes('₹1,500'),
+      payBox.replace(/\s+/g, ' ').slice(0, 160));
+
+    /* Reconciliation: the badge as a button, then confirming payments ------- */
+    // A stale search term must not be able to hide what the badge counts.
+    search.value = 'ZZZZ';
+    search.dispatch('change');
+    const reconcileBanner = portal.document.getElementById('ordersReconcileBanner');
+    check('the reconcile banner stays hidden until its filter is on',
+      reconcileBanner.style.display === 'none', reconcileBanner.style.display);
+
+    badge.dispatch('click');
+    const unverifiedToggle = portal.document.getElementById('orderUnverifiedOnly');
+    check('the badge filters the ledger down to exactly the payments it counts',
+      unverifiedToggle.checked === true && search.value === ''
+      && portal.document.getElementById('orderStatusFilter').value === 'ALL'
+      && tbody().includes('VRH-260928-PACK') && !tbody().includes('VRH-260928-ZZZZ')
+      && !tbody().includes('VRH-260930-TODAY')
+      && portal.document.getElementById('tab-orders').style.display === 'block',
+      tbody().slice(0, 140));
+    check('the badge click saves that view in the URL',
+      String(runtime.urlChanges[runtime.urlChanges.length - 1] || '').includes('unverified=1')
+      && !String(runtime.urlChanges[runtime.urlChanges.length - 1] || '').includes('q='),
+      runtime.urlChanges[runtime.urlChanges.length - 1]);
+    check('the reconcile banner counts the rows waiting and offers a way out',
+      reconcileBanner.style.display === 'flex'
+      && portal.document.getElementById('ordersReconcileCount').textContent === '1',
+      reconcileBanner.style.display + ' / ' + portal.document.getElementById('ordersReconcileCount').textContent);
+
+    runtime.confirmAnswer = true;
+    const verificationsBefore = runtime.verifications.length;
+    portal.click('.js-verify-payment');
+    await portal.settle();
+    check('Mark Paid confirms that one payment through the service',
+      runtime.verifications.length === verificationsBefore + 1
+      && runtime.verifications[runtime.verifications.length - 1].orderId === 'VRH-260928-PACK',
+      JSON.stringify(runtime.verifications));
+
+    const packBox = portal.document.querySelectorAll('.js-row-select')
+      .find((b) => b.getAttribute('data-order-id') === 'VRH-260928-PACK');
+    const verifyBtn = portal.document.getElementById('btnBulkVerify');
+    packBox.checked = true;
+    packBox.dispatch('change');
+    check('Confirm payments appears when an unverified row is ticked',
+      verifyBtn.style.display === 'inline-flex'
+      && portal.document.getElementById('ordersBulkBar').style.display === 'flex',
+      verifyBtn.style.display);
+
+    const verificationsBeforeBulk = runtime.verifications.length;
+    portal.click('#btnBulkVerify');
+    await portal.settle();
+    check('bulk Confirm payments confirms every ticked unverified payment',
+      runtime.verifications.length === verificationsBeforeBulk + 1
+      && runtime.verifications[runtime.verifications.length - 1].orderId === 'VRH-260928-PACK'
+      && runtime.dialogs.some((d) => d.type === 'alert' && /Confirmed 1 payment/.test(d.message)),
+      JSON.stringify(runtime.verifications));
+    check('the selection clears once the payments are confirmed',
+      portal.document.getElementById('ordersSelectedCount').textContent === '0'
+      && verifyBtn.style.display === 'none',
+      portal.document.getElementById('ordersSelectedCount').textContent);
+
+    portal.click('#btnClearUnverifiedFilter');
+    check('Show all brings the whole ledger back and hides the banner',
+      unverifiedToggle.checked === false && reconcileBanner.style.display === 'none'
+      && tbody().includes('VRH-260930-TODAY'),
+      tbody().slice(0, 140));
+    const verifiedBox = portal.document.querySelectorAll('.js-row-select')
+      .find((b) => b.getAttribute('data-order-id') === 'VRH-260928-ZZZZ');
+    verifiedBox.checked = true;
+    verifiedBox.dispatch('change');
+    check('Confirm payments stays hidden when only confirmed payments are ticked',
+      verifyBtn.style.display === 'none', verifyBtn.style.display);
+    portal.click('#btnBulkClear');
+    runtime.confirmAnswer = false;
 
     /* Date range ----------------------------------------------------------- */
     const fromEl = portal.document.getElementById('orderDateFrom');
@@ -297,6 +409,10 @@ async function runPortal(key) {
       tbody().includes('VRH-260928-ZZZZ') && tbody().includes('VRH-260928-PACK')
       && !tbody().includes('VRH-260930-TODAY') && !tbody().includes('VRH-260928-CANC'),
       tbody().slice(0, 140));
+    check('the date range becomes part of the saved view',
+      String(runtime.urlChanges[runtime.urlChanges.length - 1] || '')
+        .includes('from=' + dayInput(-2) + '&to=' + dayInput(-2)),
+      runtime.urlChanges[runtime.urlChanges.length - 1]);
 
     portal.click('#btnExportOrders');
     check('names the export after the date range it covers',
@@ -313,6 +429,20 @@ async function runPortal(key) {
       fromEl.value === '' && toEl.value === '' && tbody().includes('VRH-260930-TODAY'),
       fromEl.value + ' / ' + toEl.value);
 
+    const statusFilterEl = portal.document.getElementById('orderStatusFilter');
+    statusFilterEl.value = 'Packed';
+    statusFilterEl.dispatch('change');
+    check('a status filter is part of the saved view, and the ledger follows it',
+      tbody().includes('VRH-260928-PACK') && !tbody().includes('VRH-260930-TODAY')
+      && String(runtime.urlChanges[runtime.urlChanges.length - 1] || '').includes('status=Packed'),
+      runtime.urlChanges[runtime.urlChanges.length - 1]);
+    statusFilterEl.value = 'ALL';
+    statusFilterEl.dispatch('change');
+    check('resetting the status clears it from the URL',
+      !String(runtime.urlChanges[runtime.urlChanges.length - 1] || '').includes('status=')
+      && tbody().includes('VRH-260930-TODAY'),
+      runtime.urlChanges[runtime.urlChanges.length - 1]);
+
     /* Packing slips and gift notes ----------------------------------------- */
     portal.click('.js-print-order');
     const slip = portal.document.getElementById('printSheet').innerHTML;
@@ -325,6 +455,36 @@ async function runPortal(key) {
     check('the gift note comes out with the slip',
       /Gift note/.test(slip) && slip.includes('Happy Diwali, Nani!'),
       slip.replace(/\s+/g, ' ').slice(0, 150));
+
+    /* Order detail drawer ---------------------------------------------------- */
+    const drawerRow = portal.document.getElementById('ordersTbody').querySelectorAll('tr')
+      .find((r) => r.getAttribute('data-order-id') === 'VRH-260928-ZZZZ');
+    drawerRow.dispatch('click');
+    const drawer = portal.document.getElementById('modalOrderDetail');
+    check('clicking a ledger row opens the full order drawer',
+      drawer.style.display === 'flex'
+      && portal.document.getElementById('orderDetailTitle').textContent.includes('VRH-260928-ZZZZ'),
+      drawer.style.display);
+    const drawerBody = portal.document.getElementById('orderDetailBody').innerHTML;
+    check('the drawer carries the whole order: recipient, items, money, payment',
+      drawerBody.includes('Anita') && drawerBody.includes('Celebration Box')
+      && drawerBody.includes('2,200') && drawerBody.includes('VRINDA200')
+      && drawerBody.includes('FamPay') && drawerBody.includes('400001'),
+      drawerBody.replace(/\s+/g, ' ').slice(0, 160));
+    check('the drawer carries the gift note and the delivery assignment',
+      drawerBody.includes('Happy Diwali, Nani!') && drawerBody.includes('Ravi')
+      && drawerBody.includes('Morning (9am - 1pm)'),
+      drawerBody.replace(/\s+/g, ' ').slice(0, 160));
+
+    const printsBeforeDrawer = runtime.prints;
+    portal.click('#btnOrderDetailPrint');
+    check('the drawer prints a slip for exactly that order',
+      runtime.prints === printsBeforeDrawer + 1
+      && portal.document.getElementById('printSheet').innerHTML.includes('VRH-260928-ZZZZ'),
+      'prints: ' + runtime.prints);
+    portal.click('#btnOrderDetailClose');
+    check('the drawer closes again',
+      drawer.style.display === 'none', drawer.style.display);
 
     /* Selection and bulk actions ------------------------------------------- */
     const boxes = portal.document.querySelectorAll('.js-row-select');
@@ -343,7 +503,7 @@ async function runPortal(key) {
     const bulkSlip = portal.document.getElementById('printSheet').innerHTML;
     const slipCount = (bulkSlip.match(/class="print-slip"/g) || []).length;
     check('Print slips renders one slip per selected order',
-      runtime.prints === 2 && slipCount === 2,
+      runtime.prints === 3 && slipCount === 2,
       'prints: ' + runtime.prints + ', slips: ' + slipCount);
 
     runtime.confirmAnswer = true;
@@ -379,6 +539,93 @@ async function runPortal(key) {
     check('the queue can print a packing slip too',
       runtime.prints === 1 && /Packing slip/.test(portal.document.getElementById('printSheet').innerHTML),
       'prints: ' + runtime.prints);
+
+    // The stub creates any id the controller asks for, so the page must carry
+    // these too — a typo between the two would pass every check and do nothing.
+    const staffMarkup = fs.readFileSync(path.join(ROOT, cfg.html), 'utf8');
+    const staffWired = [
+      'staffDateFrom', 'staffDateTo', 'staffBtnThisMonth', 'staffBtnClearDates',
+      'staffExportOrders', 'staffSelectAll', 'staffBulkBar', 'staffSelectedCount',
+      'staffBulkMarkPacked', 'staffBulkPrint', 'staffBulkClear'
+    ];
+    const staffMissing = staffWired.filter((id) => staffMarkup.indexOf('id="' + id + '"') === -1);
+    check('every new queue control exists in the page markup',
+      staffMissing.length === 0, 'missing: ' + staffMissing.join(', '));
+
+    // The select column shifted every cell in this table, which is exactly the
+    // kind of edit that silently misaligns a queue.
+    const staffThead = (staffMarkup.split('id="staffOrdersTbody"')[0].match(/<thead>[\s\S]*?<\/thead>/g) || []).pop() || '';
+    const staffHeaderCells = (staffThead.match(/<th[ >]/g) || []).length;
+    const staffFirstRow = (tbody().split('<tr')[1] || '').split('</tr>')[0];
+    const staffRowCells = (staffFirstRow.match(/<td[ >]/g) || []).length;
+    check('the queue row still has one cell per header column',
+      staffHeaderCells === 6 && staffRowCells === staffHeaderCells,
+      staffHeaderCells + ' headers vs ' + staffRowCells + ' cells in the first row');
+
+    /* Date range and export (staff parity with the ledger) ------------------ */
+    const staffDayInput = (offsetDays) => {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() + offsetDays);
+      const pad = (n) => String(n).padStart(2, '0');
+      return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+    };
+    const staffFrom = portal.document.getElementById('staffDateFrom');
+    const staffTo = portal.document.getElementById('staffDateTo');
+    staffFrom.value = staffDayInput(0);
+    staffTo.value = staffDayInput(0);
+    staffFrom.dispatch('change');
+    check('the queue narrows to today\'s orders',
+      tbody().includes('VRH-260930-TODAY') && !tbody().includes('VRH-260928-ZZZZ')
+      && !tbody().includes('VRH-260928-PACK'),
+      tbody().slice(0, 140));
+
+    portal.click('#staffExportOrders');
+    const staffCsv = lastCsv();
+    check('the queue export follows the date filter, shares the ledger\'s header, and is named after the range',
+      (runtime.downloads[runtime.downloads.length - 1] || {}).name === 'orders-' + staffDayInput(0) + '.csv'
+      && staffCsv.split('\n')[0] === CSV_HEADER
+      && staffCsv.includes('VRH-260930-TODAY') && !staffCsv.includes('VRH-260928-PACK'),
+      JSON.stringify(runtime.downloads[runtime.downloads.length - 1]));
+
+    portal.click('#staffBtnClearDates');
+    check('clearing the dates brings the queue back',
+      staffFrom.value === '' && tbody().includes('VRH-260928-ZZZZ'),
+      staffFrom.value + ' / ' + tbody().slice(0, 100));
+
+    /* Selection and bulk actions (staff parity) ----------------------------- */
+    const staffBoxes = portal.document.querySelectorAll('.js-row-select');
+    check('every active row carries a selection box, cancelled stays out',
+      staffBoxes.length === 3, 'boxes: ' + staffBoxes.length);
+
+    const staffSelectAll = portal.document.getElementById('staffSelectAll');
+    staffSelectAll.checked = true;
+    staffSelectAll.dispatch('change');
+    check('the header box selects every active row and raises the bulk bar',
+      portal.document.getElementById('staffSelectedCount').textContent === '3'
+      && portal.document.getElementById('staffBulkBar').style.display === 'flex',
+      portal.document.getElementById('staffSelectedCount').textContent + ' selected');
+
+    portal.click('#staffBulkPrint');
+    const staffSlip = portal.document.getElementById('printSheet').innerHTML;
+    const staffSlipCount = (staffSlip.match(/class="print-slip"/g) || []).length;
+    check('bulk Print slips renders one slip per ticked order',
+      runtime.prints === 2 && staffSlipCount === 3,
+      'prints: ' + runtime.prints + ', slips: ' + staffSlipCount);
+
+    runtime.confirmAnswer = true;
+    portal.click('#staffBulkMarkPacked');
+    await portal.settle();
+    check('bulk Mark Packed writes through the service once per ticked order',
+      runtime.statusUpdates.length === 3
+      && runtime.statusUpdates.every((u) => u.status === 'Packed')
+      && runtime.statusUpdates.map((u) => u.orderId).sort().join(',') === 'VRH-260928-PACK,VRH-260928-ZZZZ,VRH-260930-TODAY',
+      JSON.stringify(runtime.statusUpdates));
+    check('the selection clears when the bulk action finishes',
+      portal.document.getElementById('staffSelectedCount').textContent === '0'
+      && portal.document.getElementById('staffBulkBar').style.display === 'none',
+      portal.document.getElementById('staffSelectedCount').textContent);
+    runtime.confirmAnswer = false;
   }
 
   if (key === 'delivery') {
@@ -422,6 +669,26 @@ async function runPortal(key) {
     degradedTable.slice(0, 130));
   check('a page without the order service still boots cleanly',
     degraded.runtime.errors.length === 0, degraded.runtime.errors[0]);
+
+  /* -- a page opened from a saved/bookmarked view ------------------------- */
+  if (key === 'super-admin') {
+    const restored = await bootPortal(Object.assign({}, cfg, {
+      search: '?q=PACK&status=Packed&unverified=1'
+    }));
+    await restored.settle();
+    restored.feed.snapshot(ordersFixture());
+    await restored.settle();
+    const restoredTbody = restored.html(cfg.tbody);
+    check('a saved ledger link reopens on the view it was copied from',
+      restored.document.getElementById('orderSearchInput').value === 'PACK'
+      && restored.document.getElementById('orderStatusFilter').value === 'Packed'
+      && restored.document.getElementById('orderUnverifiedOnly').checked === true
+      && restoredTbody.includes('VRH-260928-PACK')
+      && !restoredTbody.includes('VRH-260930-TODAY'),
+      restoredTbody.slice(0, 140));
+    check('the restored view boots cleanly',
+      restored.runtime.errors.length === 0, restored.runtime.errors[0]);
+  }
 
   const passed = results.filter((r) => r.ok).length;
   return { passed, failed: results.length - passed, failures: results.filter((r) => !r.ok) };

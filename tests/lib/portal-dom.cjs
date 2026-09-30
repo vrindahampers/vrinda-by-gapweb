@@ -302,6 +302,8 @@ function createRuntime() {
     prints: 0,           // window.print() calls (the packing slips)
     downloads: [],       // <a download> clicks, so the CSV filename can be checked
     statusUpdates: [],   // every updateOrderStatus(orderId, status, note) the UI made
+    verifications: [],   // every markPaymentVerified(orderId, note) reconciliation made
+    urlChanges: [],      // every history.replaceState URL (the ledger's saved filters)
     feed: null
   };
   return runtime;
@@ -344,6 +346,25 @@ function createWindow(document, runtime, portal) {
       search: '',
       hash: ''
     },
+    // The ledger saves its filters with replaceState (no back-button spam), so
+    // the stub parses each new URL straight back into `location`: a check can
+    // read exactly what a reload would restore from. The parser and
+    // URLSearchParams come from the host realm, same as Blob above.
+    history: {
+      replaceState: (state, title, url) => {
+        runtime.urlChanges.push(String(url));
+        try {
+          const parsed = new URL(String(url), 'https://vrindahampers.in');
+          win.location.href = parsed.href;
+          win.location.pathname = parsed.pathname;
+          win.location.search = parsed.search;
+          win.location.hash = parsed.hash;
+        } catch (err) {
+          runtime.errors.push('history.replaceState: ' + err.message);
+        }
+      }
+    },
+    URLSearchParams: URLSearchParams,
     navigator: { userAgent: 'vrindahampers portal harness', onLine: true },
     innerWidth: 390,   // a phone: the layout the owners actually use
     innerHeight: 844,
@@ -565,7 +586,39 @@ function installServices(win, runtime, role, options) {
         revenue7: sum(week),
         orders7: week.length,
         revenue30: sum(month),
-        orders30: month.length
+        orders30: month.length,
+        unverifiedAmount: sum(valid.filter((o) => o.payment && o.payment.verified === false)),
+        statusFunnel: (function () {
+          const steps = [
+            'Order Placed', 'Payment Confirmed', 'Awaiting Customization',
+            'Customer Contacted', 'Photos Received', 'Customization Confirmed',
+            'Production Started', 'Packed', 'Assigned To Delivery',
+            'Out For Delivery', 'Delivered', 'Cancelled'
+          ];
+          return steps
+            .map((status) => ({ status: status, count: list.filter((o) => o.status === status).length }))
+            .filter((row) => row.count > 0);
+        })(),
+        topProducts: (function () {
+          const tally = {};
+          valid.forEach((o) => (Array.isArray(o.items) ? o.items : []).forEach((item) => {
+            const name = (item && (item.name || item.title)) || 'Unnamed item';
+            const qty = Number((item && (item.qty || item.quantity)) || 1);
+            const price = Number((item && item.price) || 0);
+            const entry = tally[name] || (tally[name] = { name: name, qty: 0, revenue: 0 });
+            entry.qty += qty;
+            entry.revenue += qty * price;
+          }));
+          return Object.keys(tally)
+            .map((key) => tally[key])
+            .sort((a, b) => b.qty - a.qty || b.revenue - a.revenue)
+            .slice(0, 5);
+        })(),
+        paymentBreakdown: {
+          verified: valid.filter((o) => o.payment && o.payment.verified === true).length,
+          unverified: valid.filter((o) => o.payment && o.payment.verified === false).length,
+          untracked: valid.filter((o) => !o.payment || (o.payment.verified !== true && o.payment.verified !== false)).length
+        }
       };
     },
     listenToUsers: (callback) => {
@@ -590,7 +643,84 @@ function installServices(win, runtime, role, options) {
     },
     listNewsletter: async () => [],
     downloadNewsletterCsv: () => {},
-    markPaymentVerified: ok,
+    // Reconciliation records itself so a check can prove which order the ledger
+    // actually confirmed, not just that a button rendered.
+    markPaymentVerified: (orderId, note) => {
+      runtime.verifications.push({ orderId: String(orderId), note: String(note || '') });
+      return { success: true };
+    },
+    // Mirrors of the shared order helpers in admin-service.js (the real file has
+    // its own checks in tests/admin-stats-harness.cjs). Kept here so both
+    // portals' exports run against the same service surface the stub provides.
+    orderShape: {
+      recipientName: (order) => {
+        const legacy = order.shippingAddress || {};
+        return (order.customer && order.customer.name) || legacy.fullName || legacy.name || 'Customer';
+      },
+      recipientPhone: (order) => {
+        const legacy = order.shippingAddress || {};
+        return (order.customer && order.customer.phone) || legacy.phone || '';
+      },
+      recipientCity: (order) => {
+        const legacy = order.shippingAddress || {};
+        return (order.shipping && order.shipping.city) || legacy.city || 'India';
+      },
+      recipientPincode: (order) => {
+        const legacy = order.shippingAddress || {};
+        return (order.shipping && order.shipping.pincode) || legacy.pincode || '';
+      },
+      deliverySlot: (order) => {
+        const legacy = order.shippingAddress || {};
+        return (order.gifting && order.gifting.deliverySlot) || legacy.deliverySlot || 'Standard Delivery';
+      },
+      itemQty: (item) => (item && (item.qty || item.quantity)) || 1,
+      itemName: (item) => (item && (item.name || item.title)) || 'Item'
+    },
+    ordersToCsv: (rows) => {
+      const shape = win.VrindaAdmin.orderShape;
+      const cell = (value) => {
+        const s = value === undefined || value === null ? '' : String(value);
+        return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      };
+      const header = [
+        'order_id', 'placed_on', 'status', 'customer', 'phone', 'city', 'pincode',
+        'delivery_type', 'slot', 'items', 'item_names',
+        'subtotal', 'discount', 'coupon', 'total',
+        'payment_mode', 'payment_verified', 'utr'
+      ];
+      const rowCsv = (rows || []).map((o) => {
+        const pricing = o.pricing || {};
+        const payment = o.payment || {};
+        const delivery = o.delivery || {};
+        const placedOn = o.createdAt ? new Date(o.createdAt) : null;
+        return [
+          cell(o.orderId),
+          cell(placedOn && !isNaN(placedOn.getTime()) ? placedOn.toISOString() : ''),
+          cell(o.status),
+          cell(shape.recipientName(o)),
+          cell(shape.recipientPhone(o)),
+          cell(shape.recipientCity(o)),
+          cell(shape.recipientPincode(o)),
+          cell(delivery.type || ''),
+          cell(shape.deliverySlot(o)),
+          cell((o.items || []).length),
+          cell((o.items || []).map((i) => `${i.name || 'Item'} x${i.qty || 1}`).join(' | ')),
+          cell(pricing.subtotal || 0),
+          cell(pricing.discount || 0),
+          cell(pricing.couponCode || ''),
+          cell(pricing.total || 0),
+          cell(payment.mode || ''),
+          cell(payment.verified === true ? 'yes' : payment.verified === false ? 'no' : ''),
+          cell(payment.utr || '')
+        ].join(',');
+      });
+      return [header.join(',')].concat(rowCsv).join('\n');
+    },
+    ordersCsvFileName: (from, to) => {
+      if (from && from === to) return 'orders-' + from + '.csv';
+      if (from || to) return 'orders-' + (from || 'start') + '_to_' + (to || 'today') + '.csv';
+      return 'orders-' + new Date().toISOString().slice(0, 10) + '.csv';
+    },
     deleteOrder: ok,
     updateUserRole: ok,
     saveSettings: ok,
@@ -701,7 +831,18 @@ async function bootPortal(options) {
   const sandbox = page.sandbox;
   const runtime = page.runtime;
 
+  // The page's own markup: ids and classes must resolve to the elements a
+  // browser would have parsed, otherwise a tab switch or a class-based lookup
+  // silently finds nothing and the check that would have caught it passes.
+  try {
+    document.body.innerHTML = fs.readFileSync(path.join(ROOT, config.html || ''), 'utf8');
+  } catch (err) {
+    runtime.errors.push('seed page: ' + err.message);
+  }
   if (config.tbody) seedTbody(document, config.html, config.tbody);
+  // A shared ledger link (…?q=…&unverified=1) must open on the same view, so a
+  // check can boot the page as if somebody had bookmarked it.
+  if (config.search) sandbox.location.search = String(config.search);
 
   try {
     loadScript(sandbox, 'assets/data/sample-data.js');   // both pages load this first

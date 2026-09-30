@@ -95,8 +95,12 @@ vrindahamp/
 > rows in view as a CSV named after the range; prints a packing slip per order — with the gift
 > note below it — via `js/print-service.js` + `css/print.css`; and supports bulk selection for
 > **Mark Packed** and **Print slips**. The dashboard adds Today / 7 day / 30 day revenue cards
-> and an unverified-payments badge on the Orders tab. All of it is pinned by the
-> dependency-free harnesses in `tests/` (`tests/README.md`).
+> and an unverified-payments badge on the Orders tab. The four newest additions: a payment
+> reconciliation flow (badge → filtered ledger + banner + bulk **Mark Paid**), ledger filters
+> that persist in the URL (shareable, bookmark-safe, debounced), an order detail drawer with
+> its own print, dashboard insight panels (best sellers, status funnel, payment breakdown),
+> and staff-portal parity with the ledger (date range + presets, CSV export, bulk selection).
+> All of it is pinned by the dependency-free harnesses in `tests/` (`tests/README.md`).
 
 > **Shipped early in Phase 7 prep:** `site.webmanifest` (installable PWA metadata + shortcuts),
 > `robots.txt`, `sitemap.xml` and the SVG brand favicon (`assets/icons/favicon.svg`), all wired
@@ -134,7 +138,7 @@ leaking data.
 ## 🧪 Tests (dependency-free)
 
 `tests/` holds small Node harnesses that boot the real admin portal controllers
-behind a stub DOM and drive the Realtime Database feeds by hand — 105 checks
+behind a stub DOM and drive the Realtime Database feeds by hand — 150 checks
 across the feed contract (`js/order-service.js`), the dashboard numbers
 (`js/admin-service.js`), and the three operations portals (Super Admin ledger,
 Staff queue, Delivery hub).

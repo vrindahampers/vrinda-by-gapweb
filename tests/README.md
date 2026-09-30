@@ -5,10 +5,10 @@ see: the operations portals, which paint their tables from a live Realtime
 Database subscription rather than from data present at load.
 
 ```bash
-node tests/run-all.cjs                            # everything (105 checks), exits 1 on any failure
+node tests/run-all.cjs                            # everything (150 checks), exits 1 on any failure
 node tests/order-service-harness.cjs              # the feed contract itself (12 checks)
-node tests/admin-stats-harness.cjs                # the dashboard numbers (12 checks)
-node tests/order-feed-harness.cjs                 # all three portals (81 checks)
+node tests/admin-stats-harness.cjs                # the dashboard numbers (21 checks)
+node tests/order-feed-harness.cjs                 # all three portals (117 checks)
 node tests/order-feed-harness.cjs super-admin     # or: staff, delivery
 ```
 
@@ -20,8 +20,8 @@ dependencies, no build step, no network.
 | Harness | Pins |
 | --- | --- |
 | `order-service-harness.cjs` | A value listener per feed, a rejection handler registered alongside it and handed to the caller, a warning when there is no handler at all, `UNAVAILABLE` when the SDK never loaded, and a newest-first array out of a snapshot. |
-| `admin-stats-harness.cjs` | `computeStats`: cancelled money stays out of every total, the Today / 7 day / 30 day windows are calendar windows (6 days back counts, 7 does not; 29 counts, 30 does not), orders with no timestamp stay out of the windows, and the unverified-payment count that drives the Orders badge. |
-| `order-feed-harness.cjs` | Each portal boots and paints; empty vs refused vs silent feeds; the failure row and its Retry; the ledger's coupon line, unverified badge, delete confirmation and CSV export (header, in-view rows, plain amounts, filenames following the range); the placed-date filter and the "This month" preset; packing slips with gift notes; and the bulk selection with Mark Packed / Print slips. |
+| `admin-stats-harness.cjs` | `computeStats`: cancelled money stays out of every total, the Today / 7 day / 30 day windows are calendar windows (6 days back counts, 7 does not; 29 counts, 30 does not), orders with no timestamp stay out of the windows, the unverified-payment count that drives the Orders badge, the status funnel, best sellers ranked by quantity with money as the tiebreak, the payment breakdown (COD vs prepaid, verified vs unverified), and the shared CSV helpers (header order, quoting, range-named filename). |
+| `order-feed-harness.cjs` | Each portal boots and paints; empty vs refused vs silent feeds; the failure row and its Retry; the ledger's coupon line, unverified badge, delete confirmation and CSV export (header, in-view rows, plain amounts, filenames following the range); ledger filters that persist in the URL (search debounce, status, date range, boot from a bookmarked URL); the unverified-payments badge reconciling down to exactly the rows it counts, with the banner, bulk **Mark Paid** and per-row Mark Paid confirmed through the service; the order detail drawer (markup, print, close); the dashboard insight panels (best sellers, funnel, payment breakdown); the placed-date filter and the "This month" preset; packing slips with gift notes; the bulk selection with Mark Packed / Print slips; and staff parity — date range + presets, CSV export sharing the ledger's header, and select column + bulk bar. |
 
 ## Why these exist
 
@@ -45,8 +45,10 @@ role, and both harnesses fail if a rejection stops reaching the caller.
 ## How they work
 
 `lib/portal-dom.cjs` is a small DOM (elements, classList, attributes, innerHTML
-parsed flat) plus a fake `window` with recorded timers, dialogs, blobs, storage
-and service stubs. A harness boots the **real controller file** against it, fires
+parsed flat) plus a fake `window` with recorded timers, dialogs, blobs, storage,
+history and service stubs. Each portal boot seeds the real page's markup into
+the stub body, so ids, classes and tab switches resolve the way a browser would
+resolve them. A harness boots the **real controller file** against it, fires
 `DOMContentLoaded`, then drives the feed by hand:
 
 ```js
