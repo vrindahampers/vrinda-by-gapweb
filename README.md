@@ -118,3 +118,21 @@ leaking data.
 - **Pretty URLs**: `404.html` + `js/404-router.js` resolve paths like `/bouquets/velvet-midnight-rose-bouquet` or `/custom/bouquet` to the correct static route, and lock the deployment root with a `<base>` tag so assets load even on deep 404 URLs. See `ROUTING_AND_SEO.md`.
 - **Dynamic SEO**: product and category controllers inject `<title>`, `meta[name="description"]`, canonical, and OpenGraph/product price tags at runtime.
 - **Auth gating**: cart, wishlist, tracking, reviews and custom design submission require login (reviews and design submissions additionally require a verified email). Browsing the full catalog is always public. `js/layout.js` handles gated triggers and hands verified actions to page controllers via the `vrinda:gated-action` DOM event.
+
+---
+
+## 🧪 Tests (dependency-free)
+
+`tests/` holds small Node harnesses that boot the real admin portal controllers
+behind a stub DOM and drive the Realtime Database feeds by hand — 72 checks
+across the feed contract (`js/order-service.js`) and the three operations portals
+(Super Admin ledger, Staff queue, Delivery hub).
+
+```bash
+node tests/run-all.cjs     # everything; exits 1 if any check fails
+```
+
+They exist because this class of bug cannot be caught by a syntax check: a bad
+helper call inside one row template threw mid-`innerHTML`, so the ledger sat on
+"Loading orders ledger..." for owners only, while staff saw a healthy page. See
+`tests/README.md`.
