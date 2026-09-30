@@ -260,6 +260,10 @@
               <button class="btn btn-xs btn-glass js-open-assign-delivery" data-order-id="${o.orderId}">
                 Assign Rider
               </button>
+              <button class="btn btn-xs btn-glass js-print-order" data-order-id="${o.orderId}"
+                      title="Packing slip, with the gift note printed below it when the order carries one">
+                🖨 Print
+              </button>
             </div>
           </td>
         </tr>
@@ -444,10 +448,27 @@
       btn.addEventListener('click', () => openAssignDeliveryModal(btn.getAttribute('data-order-id')));
     });
 
+    // The packing table is where slips are actually printed, so the button lives
+    // in this queue too. print-service.js renders both the slip and the gift note.
+    container.querySelectorAll('.js-print-order').forEach(btn => {
+      btn.addEventListener('click', () => printOrderSlip(btn.getAttribute('data-order-id')));
+    });
+
     // The failure row's Retry re-subscribes the feed instead of forcing a reload.
     container.querySelectorAll('.js-retry-orders').forEach(btn => {
       btn.addEventListener('click', retryStaffOrdersFeed);
     });
+  }
+
+  /** Print one order's packing slip (plus its gift note, when it has one). */
+  function printOrderSlip(orderId) {
+    const order = allOrders.find(o => o.orderId === orderId);
+    if (!order) return;
+    if (!window.VrindaPrint || typeof window.VrindaPrint.printOrders !== 'function') {
+      alert('The print service did not load on this page. Check that js/print-service.js is listed before admin-staff-controller.js.');
+      return;
+    }
+    window.VrindaPrint.printOrders(order);
   }
 
   /* ------------------------------------------------ CHECKLIST MODAL LOGIC */

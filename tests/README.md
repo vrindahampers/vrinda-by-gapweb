@@ -5,14 +5,23 @@ see: the operations portals, which paint their tables from a live Realtime
 Database subscription rather than from data present at load.
 
 ```bash
-node tests/run-all.cjs                            # everything (72 checks), exits 1 on any failure
+node tests/run-all.cjs                            # everything (105 checks), exits 1 on any failure
 node tests/order-service-harness.cjs              # the feed contract itself (12 checks)
-node tests/order-feed-harness.cjs                 # all three portals (60 checks)
+node tests/admin-stats-harness.cjs                # the dashboard numbers (12 checks)
+node tests/order-feed-harness.cjs                 # all three portals (81 checks)
 node tests/order-feed-harness.cjs super-admin     # or: staff, delivery
 ```
 
 Plain Node (16+), the `vm` module and the repository's own files. No
 dependencies, no build step, no network.
+
+## What is covered
+
+| Harness | Pins |
+| --- | --- |
+| `order-service-harness.cjs` | A value listener per feed, a rejection handler registered alongside it and handed to the caller, a warning when there is no handler at all, `UNAVAILABLE` when the SDK never loaded, and a newest-first array out of a snapshot. |
+| `admin-stats-harness.cjs` | `computeStats`: cancelled money stays out of every total, the Today / 7 day / 30 day windows are calendar windows (6 days back counts, 7 does not; 29 counts, 30 does not), orders with no timestamp stay out of the windows, and the unverified-payment count that drives the Orders badge. |
+| `order-feed-harness.cjs` | Each portal boots and paints; empty vs refused vs silent feeds; the failure row and its Retry; the ledger's coupon line, unverified badge, delete confirmation and CSV export (header, in-view rows, plain amounts, filenames following the range); the placed-date filter and the "This month" preset; packing slips with gift notes; and the bulk selection with Mark Packed / Print slips. |
 
 ## Why these exist
 

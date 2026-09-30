@@ -139,7 +139,14 @@ class StubElement {
   }
 
   click() {
-    return this.dispatch('click');
+    const ran = this.dispatch('click');
+    // A download link is how the CSV export leaves the page - the controller sets
+    // a.download and clicks it - so record the filename for the checks.
+    const runtime = this.ownerDocument && this.ownerDocument.__runtime;
+    if (runtime && this.tagName === 'A' && this.download) {
+      runtime.downloads.push({ name: this.download, href: this.href });
+    }
+    return ran;
   }
 
   getAttribute(name) {
@@ -237,12 +244,17 @@ function createDocument() {
     _listeners: Object.create(null)
   };
 
-  // Unknown ids are created on demand: a controller that queries a table gets an
-  // empty one (and paints its empty state) instead of a TypeError.
+  // Ids are looked up in the live tree first (a service may have created and
+  // appended an element, like the print sheet), then created on demand: a
+  // controller that queries a table gets an empty one and paints its empty state
+  // instead of a TypeError.
   doc.getElementById = (id) => {
     const key = String(id);
-    if (!doc._ids.has(key)) doc._ids.set(key, new StubElement('div', 'id="' + key + '"', doc));
-    return doc._ids.get(key);
+    const existing = allElements(doc).find((el) => el.id === key);
+    if (existing) return existing;
+    const created = new StubElement('div', 'id="' + key + '"', doc);
+    doc._ids.set(key, created);
+    return created;
   };
 
   doc.createElement = (tag) => new StubElement(tag, '', doc);
@@ -287,6 +299,9 @@ function createRuntime() {
     timers: [],          // recorded setTimeout/setInterval calls, never actually waited on
     confirmAnswer: false,// `false` so a stray delete in a test can never proceed
     promptAnswer: null,
+    prints: 0,           // window.print() calls (the packing slips)
+    downloads: [],       // <a download> clicks, so the CSV filename can be checked
+    statusUpdates: [],   // every updateOrderStatus(orderId, status, note) the UI made
     feed: null
   };
   return runtime;
@@ -391,6 +406,9 @@ function createWindow(document, runtime, portal) {
       return null;
     },
     fetch: () => Promise.reject(new Error('the harness does not do network calls')),
+    print: () => {
+      runtime.prints += 1;
+    },
     console: {
       log: () => {},
       info: () => {},
@@ -506,22 +524,48 @@ function installServices(win, runtime, role, options) {
     getWhatsAppAdminLink: (order, template) => 'https://wa.me/919999999999?text=' + encodeURIComponent(template + ' ' + (order && order.orderId)),
     assignDelivery: ok,
     updateDeliveryTracking: ok,
-    updateOrderStatus: ok,
+    // Recorded, so a check can prove a bulk action wrote the right status to the
+    // right orders through the service, rather than only re-rendering the table.
+    updateOrderStatus: async (orderId, status, note) => {
+      runtime.statusUpdates.push({ orderId, status, note });
+      return { success: true };
+    },
     approveCancellationRequest: ok,
     rejectCancellationRequest: ok
   };
 
   win.VrindaAdmin = {
     CHECKLIST_STEPS: steps.map((label) => ({ label, message: label })),
+    // Mirrors admin-service.js computeStats, period windows included, so the
+    // dashboard checks exercise the same shapes the real service returns. The real
+    // function has its own harness (tests/admin-stats-harness.cjs); this stub is
+    // here so a portal can boot without the whole service layer.
     computeStats: (orders) => {
       const list = Array.isArray(orders) ? orders : [];
+      const valid = list.filter((o) => o.status !== 'Cancelled');
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const dayMs = 24 * 60 * 60 * 1000;
+      const placedAt = (o) => Number(o.createdAt) || Number(o.placedAt) || 0;
+      const since = (ms) => valid.filter((o) => placedAt(o) >= ms);
+      const sum = (rows) => rows.reduce((total, o) => total + Number((o.pricing && o.pricing.total) || 0), 0);
+      const today = since(startOfToday.getTime());
+      const week = since(startOfToday.getTime() - 6 * dayMs);
+      const month = since(startOfToday.getTime() - 29 * dayMs);
       return {
-        totalRevenue: list.reduce((sum, o) => sum + Number((o.pricing && o.pricing.total) || 0), 0),
+        totalRevenue: sum(valid),
         totalOrders: list.length,
-        activeOrders: list.filter((o) => o.status !== 'Delivered' && o.status !== 'Cancelled').length,
+        activeOrders: valid.filter((o) => o.status !== 'Delivered').length,
         totalCustomers: 0,
-        deliveredOrders: list.filter((o) => o.status === 'Delivered').length,
-        cancelledOrders: list.filter((o) => o.status === 'Cancelled').length
+        deliveredOrders: valid.filter((o) => o.status === 'Delivered').length,
+        cancelledOrders: list.filter((o) => o.status === 'Cancelled').length,
+        unverifiedPayments: valid.filter((o) => o.payment && o.payment.verified === false).length,
+        revenueToday: sum(today),
+        ordersToday: today.length,
+        revenue7: sum(week),
+        orders7: week.length,
+        revenue30: sum(month),
+        orders30: month.length
       };
     },
     listenToUsers: (callback) => {
@@ -661,6 +705,9 @@ async function bootPortal(options) {
 
   try {
     loadScript(sandbox, 'assets/data/sample-data.js');   // both pages load this first
+    // print-service.js is listed on the admin pages that print, before the
+    // controller; loading it here keeps the harness in step with the page.
+    loadScript(sandbox, 'js/print-service.js');
     loadScript(sandbox, config.controller);
   } catch (err) {
     runtime.errors.push('load: ' + err.message + whereThrown(err));

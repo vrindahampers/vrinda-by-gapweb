@@ -88,6 +88,16 @@ vrindahamp/
 6. **Phase 6: Multi-Role Admin Dashboards (Completed)** — Super Admin (`/admin/index.html`), Staff Admin (`/admin/staff.html`) and Delivery Manager (`/admin/delivery.html`) portals behind RTDB-enforced RBAC; shared `js/admin-service.js` role gate, dashboard KPIs, order + cancellation queues, catalog/coupon/review management, staff role assignment, WhatsApp milestone checklists, rider assignment, a live dispatch board with forward-only status advances, and the completed-delivery archive.
 7. **Phase 7: SEO, Blog & Growth** — Schema markup (JSON-LD), sitemap, SEO landing pages, blog module, coupon engine, and marketing rails.
 
+> **Shipped in the admin portal since Phase 6:** the Order Operations ledger names a refused
+> or silent database read instead of sitting on "Loading orders ledger..." (with a Retry that
+> re-subscribes, and a 12 second watchdog for a blocked socket); filters by search, status,
+> unverified payments and a placed-date range with a "This month" preset; exports exactly the
+> rows in view as a CSV named after the range; prints a packing slip per order — with the gift
+> note below it — via `js/print-service.js` + `css/print.css`; and supports bulk selection for
+> **Mark Packed** and **Print slips**. The dashboard adds Today / 7 day / 30 day revenue cards
+> and an unverified-payments badge on the Orders tab. All of it is pinned by the
+> dependency-free harnesses in `tests/` (`tests/README.md`).
+
 > **Shipped early in Phase 7 prep:** `site.webmanifest` (installable PWA metadata + shortcuts),
 > `robots.txt`, `sitemap.xml` and the SVG brand favicon (`assets/icons/favicon.svg`), all wired
 > into every page head. Replace the `YOUR-DOMAIN` placeholders in `robots.txt` and
@@ -124,9 +134,10 @@ leaking data.
 ## 🧪 Tests (dependency-free)
 
 `tests/` holds small Node harnesses that boot the real admin portal controllers
-behind a stub DOM and drive the Realtime Database feeds by hand — 72 checks
-across the feed contract (`js/order-service.js`) and the three operations portals
-(Super Admin ledger, Staff queue, Delivery hub).
+behind a stub DOM and drive the Realtime Database feeds by hand — 105 checks
+across the feed contract (`js/order-service.js`), the dashboard numbers
+(`js/admin-service.js`), and the three operations portals (Super Admin ledger,
+Staff queue, Delivery hub).
 
 ```bash
 node tests/run-all.cjs     # everything; exits 1 if any check fails

@@ -512,6 +512,23 @@
       const activeDeliveries = validOrders.filter(o => ['Assigned To Delivery', 'Out For Delivery'].includes(o.status)).length;
       const pendingCustomization = validOrders.filter(o => ['Awaiting Customization', 'Customer Contacted', 'Photos Received'].includes(o.status)).length;
 
+      // Period windows for the dashboard's Today / 7 days / 30 days cards. Same
+      // rule as totalRevenue: cancelled orders are out of both the money and the
+      // count, and a window is measured from when the order was placed. Windows
+      // are calendar-based (today plus the previous N-1 days), which is how an
+      // owner reads "last 7 days" - not a rolling 168 hours.
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const todayMs = startOfToday.getTime();
+      const dayMs = 24 * 60 * 60 * 1000;
+      const placedAt = (o) => Number(o.createdAt) || Number(o.placedAt) || 0;
+      const sinceMs = (ms) => validOrders.filter(o => placedAt(o) >= ms);
+      const sumOf = (list) => list.reduce((total, o) => total + ((o.pricing && o.pricing.total) || 0), 0);
+
+      const today = sinceMs(todayMs);
+      const week = sinceMs(todayMs - 6 * dayMs);
+      const month = sinceMs(todayMs - 29 * dayMs);
+
       return {
         totalOrders: ords.length,
         activeOrders: validOrders.filter(o => o.status !== 'Delivered').length,
@@ -521,7 +538,19 @@
         totalCustomers: (users || []).length,
         totalReviews: (reviews || []).length,
         activeDeliveries: activeDeliveries,
-        pendingCustomization: pendingCustomization
+        pendingCustomization: pendingCustomization,
+
+        // The number behind the Orders badge: payments nobody has confirmed in
+        // FamPay yet. These are the orders the ledger's "Unverified payments only"
+        // filter exists for.
+        unverifiedPayments: validOrders.filter(o => o.payment && o.payment.verified === false).length,
+
+        revenueToday: sumOf(today),
+        ordersToday: today.length,
+        revenue7: sumOf(week),
+        orders7: week.length,
+        revenue30: sumOf(month),
+        orders30: month.length
       };
     },
 

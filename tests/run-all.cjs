@@ -17,6 +17,7 @@ const path = require('path');
 
 const HARNESSES = [
   'order-service-harness.cjs',   // the file the portals depend on for their feeds
+  'admin-stats-harness.cjs',     // the dashboard numbers, period windows included
   'order-feed-harness.cjs'       // the three portals that render those feeds
 ];
 

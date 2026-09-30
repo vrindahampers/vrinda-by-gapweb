@@ -27,6 +27,9 @@
   let ordersFeedPending = false;
   let ordersLoadError = null;
   let ordersWatchdog = null;
+  // Ledger row selection for the bulk actions (Print slips / Mark Packed). Ids
+  // rather than row objects, so a live snapshot re-render cannot lose the ticks.
+  let selectedOrderIds = new Set();
   let cancellationsLoadError = null;
   // Newsletter subscribers, fetched when the tab is opened or refreshed.
   let newsletterRows = [];
@@ -196,6 +199,21 @@
     // Exports exactly the rows the filters above are showing.
     document.getElementById('btnExportOrders')?.addEventListener('click', downloadOrdersCsv);
 
+    // Date range (today's packing list, the GST month) and the "This month" preset.
+    document.getElementById('orderDateFrom')?.addEventListener('change', () => renderOrdersTable());
+    document.getElementById('orderDateTo')?.addEventListener('change', () => renderOrdersTable());
+    document.getElementById('btnDateThisMonth')?.addEventListener('click', setThisMonthRange);
+    document.getElementById('btnClearOrderDates')?.addEventListener('click', clearDateRange);
+
+    // Bulk actions. The select-all box lives in the table head, so it is bound
+    // once here; the per-row boxes are (re)bound with every render.
+    document.getElementById('ordersSelectAll')?.addEventListener('change', (event) => {
+      setAllVisibleSelection(!!(event && event.target && event.target.checked));
+    });
+    document.getElementById('btnBulkMarkPacked')?.addEventListener('click', bulkMarkPacked);
+    document.getElementById('btnBulkPrint')?.addEventListener('click', () => printOrdersFromLedger(selectedInView()));
+    document.getElementById('btnBulkClear')?.addEventListener('click', clearSelection);
+
     document.getElementById('btnRefreshStats')?.addEventListener('click', () => {
       renderStats();
       alert('Stats recalculated!');
@@ -215,6 +233,10 @@
     ordersLoadError = null;
     disarmOrdersWatchdog();
     allOrders = orders;
+    // An order that has left the ledger (deleted, or replaced by a fresh snapshot)
+    // must not keep counting towards a bulk action.
+    const present = new Set(orders.map((o) => o.orderId));
+    selectedOrderIds.forEach((id) => { if (!present.has(id)) selectedOrderIds.delete(id); });
     renderStats();
     renderRecentOrders();
     renderOrdersTable();
@@ -225,6 +247,9 @@
     ordersFeedPending = false;
     ordersLoadError = describeLoadFailure('orders', err);
     renderOrdersTable();
+    // Nothing is selectable while the feed is refused, so the bulk bar must not
+    // sit there offering actions on rows that are no longer on screen.
+    syncSelectionUi([]);
   }
 
   function disarmOrdersWatchdog() {
@@ -272,6 +297,19 @@
   }
 
   /* ------------------------------------------------------------- STATS RENDERING */
+  /** ₹ with the Indian grouping the rest of the admin uses. */
+  function fillMoney(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '₹' + (Number(value) || 0).toLocaleString('en-IN');
+  }
+
+  function fillOrders(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const count = Number(value) || 0;
+    el.textContent = count + (count === 1 ? ' order' : ' orders');
+  }
+
   function renderStats() {
     if (!window.VrindaAdmin) return;
     const stats = window.VrindaAdmin.computeStats(allOrders, allUsers, allReviews);
@@ -287,6 +325,27 @@
     if (actEl) actEl.textContent = stats.activeOrders;
     if (custEl) custEl.textContent = stats.totalCustomers;
     if (delEl) delEl.textContent = `${stats.deliveredOrders} Delivered (${stats.cancelledOrders} Cancelled)`;
+
+    // Period performance: the same money, over the windows an owner actually asks
+    // about (today's packing list, this week, the GST month).
+    fillMoney('statRevenueToday', stats.revenueToday);
+    fillMoney('statRevenue7', stats.revenue7);
+    fillMoney('statRevenue30', stats.revenue30);
+    fillOrders('statOrdersToday', stats.ordersToday);
+    fillOrders('statOrders7', stats.orders7);
+    fillOrders('statOrders30', stats.orders30);
+
+    // The badge on the Orders tab: payments waiting for a human, which is the one
+    // number that should pull somebody into the ledger.
+    const badge = document.getElementById('ordersBadge');
+    if (badge) {
+      const pending = Number(stats.unverifiedPayments) || 0;
+      badge.style.display = pending ? 'inline-flex' : 'none';
+      badge.textContent = String(pending);
+      badge.title = pending
+        ? pending + ' order' + (pending === 1 ? '' : 's') + ' with a payment still to verify in FamPay'
+        : 'No payments waiting to be verified';
+    }
   }
 
   /* ----------------------------------------------------------- RECENT ORDERS */
@@ -355,6 +414,8 @@
     const query = (document.getElementById('orderSearchInput')?.value || '').toLowerCase().trim();
     const statusFilter = document.getElementById('orderStatusFilter')?.value || 'ALL';
     const unverifiedOnly = !!document.getElementById('orderUnverifiedOnly')?.checked;
+    const fromValue = document.getElementById('orderDateFrom')?.value || '';
+    const toValue = document.getElementById('orderDateTo')?.value || '';
 
     let filtered = allOrders;
 
@@ -362,6 +423,17 @@
     // admin triages exactly those orders here and confirms each one in FamPay.
     if (unverifiedOnly) {
       filtered = filtered.filter(o => o.payment && o.payment.verified === false);
+    }
+
+    // Date placed, inclusive of both ends: "1 Sep to 30 Sep" includes everything
+    // placed on the 30th, which is what those inputs mean to whoever set them.
+    if (fromValue || toValue) {
+      const fromMs = fromValue ? new Date(fromValue + 'T00:00:00').getTime() : -Infinity;
+      const toMs = toValue ? new Date(toValue + 'T23:59:59.999').getTime() : Infinity;
+      filtered = filtered.filter((o) => {
+        const at = Number(o.createdAt) || Number(o.placedAt) || 0;
+        return at >= fromMs && at <= toMs;
+      });
     }
 
     if (statusFilter === 'ACTIVE') {
@@ -445,12 +517,159 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'orders-' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.download = ordersCsvFileName();
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     // Revoke on the next tick so Safari has time to start the download.
     setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  /**
+   * The export's filename, so a month's file is named after the month rather than
+   * after the day it happened to be downloaded:
+   * orders-2026-09-01_to_2026-09-30.csv.
+   */
+  function ordersCsvFileName() {
+    const from = document.getElementById('orderDateFrom')?.value || '';
+    const to = document.getElementById('orderDateTo')?.value || '';
+    if (from && from === to) return 'orders-' + from + '.csv';
+    if (from || to) return 'orders-' + (from || 'start') + '_to_' + (to || 'today') + '.csv';
+    return 'orders-' + new Date().toISOString().slice(0, 10) + '.csv';
+  }
+
+  /* ------------------------------------------------------------- DATE RANGE */
+
+  /** yyyy-mm-dd from local parts: toISOString() would shift the day for IST. */
+  function toInputDate(date) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+  }
+
+  /** First of this month up to today: the window the GST record is filed from. */
+  function setThisMonthRange() {
+    const now = new Date();
+    const fromEl = document.getElementById('orderDateFrom');
+    const toEl = document.getElementById('orderDateTo');
+    if (fromEl) fromEl.value = toInputDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    if (toEl) toEl.value = toInputDate(now);
+    renderOrdersTable();
+  }
+
+  function clearDateRange() {
+    const fromEl = document.getElementById('orderDateFrom');
+    const toEl = document.getElementById('orderDateTo');
+    if (fromEl) fromEl.value = '';
+    if (toEl) toEl.value = '';
+    renderOrdersTable();
+  }
+
+  /* --------------------------------------------------------- ROW SELECTION */
+
+  /**
+   * The ticked orders that are still in view. A bulk action must act on what is on
+   * screen, not on rows that a filter (or a fresh snapshot) has since hidden.
+   */
+  function selectedInView() {
+    const visible = new Set(filterOrders().map((o) => o.orderId));
+    return Array.from(selectedOrderIds).filter((id) => visible.has(id));
+  }
+
+  function syncSelectionUi(visibleRows) {
+    const ids = (visibleRows || filterOrders()).map((o) => o.orderId);
+    const selected = ids.filter((id) => selectedOrderIds.has(id));
+    const bar = document.getElementById('ordersBulkBar');
+    const countEl = document.getElementById('ordersSelectedCount');
+    const selectAll = document.getElementById('ordersSelectAll');
+
+    if (countEl) countEl.textContent = String(selected.length);
+    if (bar) bar.style.display = selected.length ? 'flex' : 'none';
+    if (selectAll) {
+      selectAll.checked = ids.length > 0 && selected.length === ids.length;
+      selectAll.indeterminate = selected.length > 0 && selected.length < ids.length;
+    }
+  }
+
+  function toggleRowSelection(orderId, isSelected) {
+    if (!orderId) return;
+    if (isSelected) selectedOrderIds.add(orderId);
+    else selectedOrderIds.delete(orderId);
+    syncSelectionUi();
+  }
+
+  function setAllVisibleSelection(isSelected) {
+    filterOrders().forEach((o) => {
+      if (isSelected) selectedOrderIds.add(o.orderId);
+      else selectedOrderIds.delete(o.orderId);
+    });
+    renderOrdersTable();   // re-render so the row boxes follow the header box
+  }
+
+  function clearSelection() {
+    selectedOrderIds = new Set();
+    renderOrdersTable();
+  }
+
+  /* ------------------------------------------------------------------ PRINT */
+
+  /**
+   * One packing slip per order, with the gift note below it when the order carries
+   * a message. Prices stay off: this is the slip that goes in the box, not the
+   * invoice. Says so plainly if print-service.js did not load, rather than doing
+   * nothing at all when somebody presses a button.
+   */
+  function printOrdersFromLedger(orderIds) {
+    const ids = Array.isArray(orderIds) ? orderIds : [orderIds];
+    const orders = allOrders.filter((o) => ids.includes(o.orderId));
+    if (!orders.length) return;
+    if (!window.VrindaPrint || typeof window.VrindaPrint.printOrders !== 'function') {
+      alert('The print service did not load on this page. Check that js/print-service.js is listed before the controller script.');
+      return;
+    }
+    window.VrindaPrint.printOrders(orders);
+  }
+
+  /* ----------------------------------------------------------- BULK ACTIONS */
+
+  /**
+   * Bulk "Mark Packed": one write per order, in sequence, so a partial failure is
+   * reported per order instead of leaving whoever is packing to guess which ones
+   * went through. Each write goes through the order service, which keeps the
+   * timeline and the customer's tracking page in step.
+   */
+  async function bulkMarkPacked() {
+    const ids = selectedInView();
+    if (!ids.length) return;
+    if (!confirm('Mark ' + ids.length + ' order' + (ids.length === 1 ? '' : 's') + ' as Packed?\n\nEach order keeps its own timeline entry, and the customer\'s tracking page updates.')) return;
+
+    const button = document.getElementById('btnBulkMarkPacked');
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Marking…';
+    }
+
+    const failures = [];
+    for (const orderId of ids) {
+      try {
+        const res = await window.VrindaOrders.updateOrderStatus(orderId, 'Packed', 'Bulk action from the ledger');
+        if (!res || !res.success) failures.push(orderId + ': ' + ((res && res.error) || 'unknown error'));
+      } catch (err) {
+        failures.push(orderId + ': ' + err.message);
+      }
+    }
+
+    if (button) {
+      button.disabled = false;
+      button.textContent = '📦 Mark Packed';
+    }
+    selectedOrderIds = new Set();
+    renderOrdersTable();
+
+    if (failures.length) {
+      alert('Marked ' + (ids.length - failures.length) + ' of ' + ids.length + ' orders as Packed.\n\nStill to do:\n' + failures.join('\n'));
+    } else {
+      alert('Marked ' + ids.length + ' order' + (ids.length === 1 ? '' : 's') + ' as Packed.');
+    }
   }
 
   /* ----------------------------------------------------------- FULL ORDERS TABLE */
@@ -463,7 +682,7 @@
     if (ordersLoadError) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="6" style="text-align: center; padding: 2rem;">
+          <td colspan="7" style="text-align: center; padding: 2rem;">
             <div style="color: var(--color-text-muted);">${escapeText(ordersLoadError)}</div>
             <button class="btn btn-xs btn-primary js-retry-orders" style="margin-top: 0.75rem;">↻ Retry</button>
           </td>
@@ -477,25 +696,30 @@
     // them with "No orders match the selected filters.", which is what sent an
     // owner hunting for a filter bug that did not exist.
     if (!allOrders.length && ordersFeedPending) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">Waiting for the orders feed…</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">Waiting for the orders feed…</td></tr>`;
       return;
     }
 
     if (!allOrders.length) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">No orders yet — every new order appears here live, with its 11-step timeline.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">No orders yet — every new order appears here live, with its 11-step timeline.</td></tr>`;
       return;
     }
 
     if (!filtered.length) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">No orders match the selected filters.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">No orders match the selected filters.</td></tr>`;
       return;
     }
 
     tbody.innerHTML = filtered.map(o => {
       const waLink = window.VrindaOrders.getWhatsAppAdminLink(o, 'admin-contact');
       const isLocal = o.delivery?.type === 'local';
+      const isSelected = selectedOrderIds.has(o.orderId);
       return `
         <tr>
+          <td>
+            <input type="checkbox" class="js-row-select" data-order-id="${escAttr(o.orderId)}" ${isSelected ? 'checked' : ''}
+                   title="Select ${escAttr(o.orderId)} for a bulk action" style="accent-color: var(--color-primary);">
+          </td>
           <td>
             <strong>${o.orderId}</strong>
             <div style="font-size: 11px; color: var(--color-text-muted);">${formatDate(o.createdAt)}</div>
@@ -559,6 +783,10 @@
                         style="color: var(--color-error); border-color: var(--color-error);">
                   🗑 Delete
                 </button>` : ''}
+              <button class="btn btn-xs btn-glass js-print-order" data-order-id="${o.orderId}"
+                      title="Packing slip, with the gift note printed below it when the order carries one">
+                🖨 Print
+              </button>
             </div>
           </td>
         </tr>
@@ -574,6 +802,7 @@
       });
     });
 
+    syncSelectionUi(filtered);
     bindActionButtons(tbody);
   }
   /* ---------------------------------------------------- CANCELLATIONS TABLE */
@@ -1486,6 +1715,16 @@
       btn.addEventListener('click', () => {
         confirmDeleteOrder(btn.getAttribute('data-order-id'), btn.getAttribute('data-user-id'));
       });
+    });
+
+    // Row ticks feed the bulk bar. The rows are rebuilt on every snapshot, so the
+    // boxes are bound with each render rather than once.
+    container.querySelectorAll('.js-row-select').forEach(box => {
+      box.addEventListener('change', () => toggleRowSelection(box.getAttribute('data-order-id'), box.checked));
+    });
+
+    container.querySelectorAll('.js-print-order').forEach(btn => {
+      btn.addEventListener('click', () => printOrdersFromLedger(btn.getAttribute('data-order-id')));
     });
 
     // The failure row's Retry re-subscribes the feed, so a refusal that was only

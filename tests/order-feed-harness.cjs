@@ -28,7 +28,10 @@
 
 'use strict';
 
-const { bootPortal, FEED_WATCHDOG_MS } = require('./lib/portal-dom.cjs');
+const fs = require('fs');
+const path = require('path');
+
+const { bootPortal, FEED_WATCHDOG_MS, ROOT } = require('./lib/portal-dom.cjs');
 
 const PORTALS = {
   'super-admin': {
@@ -40,7 +43,8 @@ const PORTALS = {
     role: 'owner',                        // Super Admin++: the role that renders Delete
     visibleOrder: 'VRH-260928-ZZZZ',
     rowSelector: '.js-open-checklist',
-    emptyCopy: /No orders yet/
+    emptyCopy: /No orders yet/,
+    prints: true                          // the page links css/print.css
   },
   staff: {
     label: 'Staff — order queue',
@@ -51,7 +55,8 @@ const PORTALS = {
     role: 'staff',
     visibleOrder: 'VRH-260928-ZZZZ',
     rowSelector: '.js-open-checklist',
-    emptyCopy: /No orders yet/
+    emptyCopy: /No orders yet/,
+    prints: true
   },
   delivery: {
     label: 'Delivery Manager — dispatch queue',
@@ -62,28 +67,39 @@ const PORTALS = {
     role: 'delivery',
     visibleOrder: 'VRH-260928-PACK',      // Packed is one of the hub's ACTIVE_STATUSES
     rowSelector: '.js-hub-update',
-    emptyCopy: /No dispatches in transit/
+    emptyCopy: /No dispatches in transit/,
+    prints: false
   }
 };
 
 /**
- * Three orders covering the branches the row templates switch on: a delivered
- * order with a coupon (local express), a Packed order with an unverified FamPay
- * payment and a courier AWB, and a cancelled order (which the staff queue must
- * keep out). The nasty quotes and backticks in the first userId are deliberate:
- * that value ends up inside an HTML attribute via escAttr(), which is the exact
- * function that used to throw.
+ * Four orders covering the branches the row templates switch on and the period
+ * windows on the dashboard. Dates are relative to the day the harness runs, so
+ * "today" and "last 7 days" stay meaningful instead of rotting:
+ *
+ *   - one placed today (courier, no coupon)
+ *   - one delivered two days ago, with a coupon and a gift note (local express)
+ *   - one Packed two days ago, with an unverified FamPay payment and an AWB
+ *   - one cancelled four days ago, which no queue should show
+ *
+ * The nasty quotes and backticks in the first userId are deliberate: that value
+ * ends up inside an HTML attribute via escAttr(), the function that used to throw.
  */
 function ordersFixture() {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const today = startOfToday.getTime();
+  const day = 24 * 60 * 60 * 1000;
+
   return [
     {
       orderId: 'VRH-260928-ZZZZ',
       userId: 'uid-"quote"-`tick`',
       status: 'Delivered',
-      createdAt: Date.parse('2026-09-28T09:15:00+05:30'),
+      createdAt: today - 2 * day + 9.25 * 60 * 60 * 1000,   // 09:15, two days ago
       customer: { name: 'Anita "Sharma"', phone: '9876543210' },
       shipping: { city: 'Mumbai', pincode: '400001' },
-      gifting: { deliverySlot: 'Morning (9am - 1pm)' },
+      gifting: { occasion: 'Diwali', giftMessage: 'Happy Diwali, Nani! May this year be as sweet as the hampers you used to make.', deliverySlot: 'Morning (9am - 1pm)' },
       items: [{ name: 'Celebration Box', qty: 2 }],
       pricing: { subtotal: 2400, discount: 200, couponCode: 'VRINDA200', total: 2200 },
       payment: { mode: 'FamPay', status: 'PAID', verified: true },
@@ -93,7 +109,7 @@ function ordersFixture() {
       orderId: 'VRH-260928-PACK',
       userId: 'uid-packed',
       status: 'Packed',
-      createdAt: Date.parse('2026-09-28T11:00:00+05:30'),
+      createdAt: today - 2 * day + 11 * 60 * 60 * 1000,     // 11:00, two days ago
       customer: { name: 'Bhavna Rao', phone: '9812345678' },
       shipping: { city: 'Pune', pincode: '411001' },
       gifting: { deliverySlot: 'Evening' },
@@ -106,13 +122,26 @@ function ordersFixture() {
       orderId: 'VRH-260928-CANC',
       userId: 'uid-cancelled',
       status: 'Cancelled',
-      createdAt: Date.parse('2026-09-27T18:40:00+05:30'),
+      createdAt: today - 4 * day + 18.5 * 60 * 60 * 1000,   // 18:30, four days ago
       customer: { name: 'Chetan Iyer', phone: '9000000000' },
       shipping: { city: 'Bengaluru', pincode: '560001' },
       items: [{ name: 'Thank You Hamper', qty: 1 }],
       pricing: { subtotal: 900, discount: 0, total: 900 },
       payment: { mode: 'FamPay', status: 'REFUNDED', verified: true },
       delivery: { type: 'local' }
+    },
+    {
+      orderId: 'VRH-260930-TODAY',
+      userId: 'uid-today',
+      status: 'Payment Confirmed',
+      createdAt: today + 9.5 * 60 * 60 * 1000,              // 09:30 today
+      customer: { name: 'Deepa Menon', phone: '9822001100' },
+      shipping: { city: 'Kochi', pincode: '682001' },
+      gifting: { deliverySlot: 'Evening (4pm - 8pm)', isSurprise: true },
+      items: [{ name: 'Festive Duo', qty: 1 }],
+      pricing: { subtotal: 1000, discount: 0, total: 1000 },
+      payment: { mode: 'FamPay', status: 'PAID', verified: true },
+      delivery: { type: 'courier', courierName: 'India Post', trackingNumber: 'AWB-TODAY' }
     }
   ];
 }
@@ -167,7 +196,39 @@ async function runPortal(key) {
     'matched ' + portal.document.querySelectorAll(cfg.rowSelector).length + ' of ' + cfg.rowSelector);
 
   /* -- what each portal adds on top ------------------------------------- */
+  if (cfg.prints) {
+    const pageHtml = fs.readFileSync(path.join(ROOT, cfg.html), 'utf8');
+    check('the page loads the print stylesheet with media="print"',
+      /css\/print\.css"\s+media="print"/.test(pageHtml),
+      'css/print.css is not linked, so printing would come out with the whole admin page');
+  }
+
   if (key === 'super-admin') {
+    // The stub creates any id it is asked for, so a typo between the controller and
+    // the page would pass every other check and simply do nothing in a browser.
+    // This is the wiring check that catches it.
+    const markup = fs.readFileSync(path.join(ROOT, cfg.html), 'utf8');
+    const wiredIds = [
+      'orderDateFrom', 'orderDateTo', 'btnDateThisMonth', 'btnClearOrderDates',
+      'ordersSelectAll', 'ordersBulkBar', 'ordersSelectedCount',
+      'btnBulkMarkPacked', 'btnBulkPrint', 'btnBulkClear', 'ordersBadge',
+      'statRevenueToday', 'statOrdersToday', 'statRevenue7', 'statOrders7',
+      'statRevenue30', 'statOrders30'
+    ];
+    const missing = wiredIds.filter((id) => markup.indexOf('id="' + id + '"') === -1);
+    check('every new ledger control exists in the page markup',
+      missing.length === 0, 'missing: ' + missing.join(', '));
+
+    // Adding the select column shifted every cell and colspan in this table, which
+    // is exactly the kind of edit that silently misaligns a ledger.
+    const ordersThead = (markup.split('id="ordersTbody"')[0].match(/<thead>[\s\S]*?<\/thead>/g) || []).pop() || '';
+    const headerCells = (ordersThead.match(/<th[ >]/g) || []).length;
+    const firstRow = (tbody().split('<tr>')[1] || '').split('</tr>')[0];
+    const rowCells = (firstRow.match(/<td[ >]/g) || []).length;
+    check('the ledger row still has one cell per header column',
+      headerCells === 7 && rowCells === headerCells,
+      headerCells + ' headers vs ' + rowCells + ' cells in the first row');
+
     check('the ledger row keeps the coupon discount line', /Coupon VRINDA200/.test(tbody()));
     check('flags a payment that still needs verifying', /Payment unverified/.test(tbody()));
     check('renders the owner-only Delete button without crashing the row',
@@ -202,11 +263,122 @@ async function runPortal(key) {
       lastCsv().split('\n').length + ' lines');
     search.value = '';
     search.dispatch('input');
+
+    /* Period performance and the Orders badge ------------------------------ */
+    const cardText = (id) => portal.document.getElementById(id).textContent;
+    check('fills the period revenue cards from the snapshot',
+      cardText('statRevenueToday') === '₹1,000' && cardText('statOrdersToday') === '1 order'
+      && cardText('statRevenue7') === '₹4,700' && cardText('statOrders7') === '3 orders',
+      [cardText('statRevenueToday'), cardText('statOrdersToday'), cardText('statRevenue7'), cardText('statOrders7')].join(' | '));
+    check('the 30 day window leaves the cancelled order out',
+      cardText('statRevenue30') === '₹4,700' && cardText('statOrders30') === '3 orders',
+      cardText('statRevenue30') + ' / ' + cardText('statOrders30'));
+
+    const badge = portal.document.getElementById('ordersBadge');
+    check('puts the unverified payment count on the Orders tab',
+      badge.style.display === 'inline-flex' && badge.textContent === '1',
+      badge.textContent + ' (' + badge.style.display + ')');
+
+    /* Date range ----------------------------------------------------------- */
+    const fromEl = portal.document.getElementById('orderDateFrom');
+    const toEl = portal.document.getElementById('orderDateTo');
+    const dayInput = (offsetDays) => {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() + offsetDays);
+      const pad = (n) => String(n).padStart(2, '0');
+      return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+    };
+
+    fromEl.value = dayInput(-2);
+    toEl.value = dayInput(-2);
+    fromEl.dispatch('change');
+    check('narrows the ledger to the chosen day',
+      tbody().includes('VRH-260928-ZZZZ') && tbody().includes('VRH-260928-PACK')
+      && !tbody().includes('VRH-260930-TODAY') && !tbody().includes('VRH-260928-CANC'),
+      tbody().slice(0, 140));
+
+    portal.click('#btnExportOrders');
+    check('names the export after the date range it covers',
+      (runtime.downloads[runtime.downloads.length - 1] || {}).name === 'orders-' + dayInput(-2) + '.csv',
+      JSON.stringify(runtime.downloads[runtime.downloads.length - 1]));
+
+    portal.click('#btnDateThisMonth');
+    check('the "This month" preset spans the 1st to today',
+      fromEl.value === dayInput(1 - new Date().getDate()) && toEl.value === dayInput(0),
+      fromEl.value + ' → ' + toEl.value);
+
+    portal.click('#btnClearOrderDates');
+    check('clearing the dates brings every order back',
+      fromEl.value === '' && toEl.value === '' && tbody().includes('VRH-260930-TODAY'),
+      fromEl.value + ' / ' + toEl.value);
+
+    /* Packing slips and gift notes ----------------------------------------- */
+    portal.click('.js-print-order');
+    const slip = portal.document.getElementById('printSheet').innerHTML;
+    check('the row Print button builds a packing slip and opens the print dialog',
+      runtime.prints === 1 && /Packing slip/.test(slip) && slip.includes('VRH-260928-ZZZZ'),
+      'prints: ' + runtime.prints);
+    check('the slip carries the address, the items and the payment line',
+      slip.includes('Anita') && slip.includes('Celebration Box') && /PAID/.test(slip),
+      slip.replace(/\s+/g, ' ').slice(0, 150));
+    check('the gift note comes out with the slip',
+      /Gift note/.test(slip) && slip.includes('Happy Diwali, Nani!'),
+      slip.replace(/\s+/g, ' ').slice(0, 150));
+
+    /* Selection and bulk actions ------------------------------------------- */
+    const boxes = portal.document.querySelectorAll('.js-row-select');
+    check('every ledger row carries a selection box', boxes.length === 4, 'boxes: ' + boxes.length);
+
+    boxes[0].checked = true;
+    boxes[0].dispatch('change');
+    boxes[1].checked = true;
+    boxes[1].dispatch('change');
+    check('ticks raise the bulk bar with a live count',
+      portal.document.getElementById('ordersSelectedCount').textContent === '2'
+      && portal.document.getElementById('ordersBulkBar').style.display === 'flex',
+      portal.document.getElementById('ordersSelectedCount').textContent + ' selected');
+
+    portal.click('#btnBulkPrint');
+    const bulkSlip = portal.document.getElementById('printSheet').innerHTML;
+    const slipCount = (bulkSlip.match(/class="print-slip"/g) || []).length;
+    check('Print slips renders one slip per selected order',
+      runtime.prints === 2 && slipCount === 2,
+      'prints: ' + runtime.prints + ', slips: ' + slipCount);
+
+    runtime.confirmAnswer = true;
+    portal.click('#btnBulkMarkPacked');
+    await portal.settle();
+    check('Mark Packed writes Packed through the service, once per selected order',
+      runtime.statusUpdates.length === 2
+      && runtime.statusUpdates.every((u) => u.status === 'Packed')
+      && runtime.statusUpdates.map((u) => u.orderId).sort().join(',') === 'VRH-260928-PACK,VRH-260928-ZZZZ',
+      JSON.stringify(runtime.statusUpdates));
+
+    check('the selection clears when the bulk action finishes',
+      portal.document.getElementById('ordersSelectedCount').textContent === '0'
+      && portal.document.getElementById('ordersBulkBar').style.display === 'none',
+      portal.document.getElementById('ordersSelectedCount').textContent);
+
+    const selectAll = portal.document.getElementById('ordersSelectAll');
+    selectAll.checked = true;
+    selectAll.dispatch('change');
+    check('the header box selects everything in view',
+      portal.document.getElementById('ordersSelectedCount').textContent === '4',
+      portal.document.getElementById('ordersSelectedCount').textContent + ' selected');
+    portal.click('#btnBulkClear');
+    runtime.confirmAnswer = false;
   }
 
   if (key === 'staff') {
     check('the queue keeps cancelled orders out',
       !tbody().includes('VRH-260928-CANC'), tbody().slice(0, 140));
+
+    // The packing table is where slips get printed, so the queue carries the button.
+    portal.click('.js-print-order');
+    check('the queue can print a packing slip too',
+      runtime.prints === 1 && /Packing slip/.test(portal.document.getElementById('printSheet').innerHTML),
+      'prints: ' + runtime.prints);
   }
 
   if (key === 'delivery') {

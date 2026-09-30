@@ -17,6 +17,8 @@
   <link rel="stylesheet" href="../css/variables.css">
   <link rel="stylesheet" href="../css/main.css">
   <link rel="stylesheet" href="../css/components.css">
+  <!-- Print-only layout for packing slips and gift notes (js/print-service.js). -->
+  <link rel="stylesheet" href="../css/print.css" media="print">
 </head>
 <body class="admin-body">
   <div id="vrinda-header"></div>
@@ -38,6 +40,8 @@
         </button>
         <button class="admin-nav-item" data-tab="orders">
           <span>📦</span> Orders Management
+          <span id="ordersBadge" class="badge badge-accent" style="display: none; margin-left: auto;"
+                title="Orders whose payment still needs verifying in FamPay">0</span>
         </button>
         <button class="admin-nav-item" data-tab="cancellations">
           <span>⚠️</span> Cancellations <span id="cancelBadge" class="badge badge-error" style="display: none; margin-left: auto;">0</span>
@@ -123,6 +127,27 @@
           </div>
         </div>
 
+        <!-- Period performance. The two questions the owner asks most often are
+             "what came in today?" and "what came in this month?" (the GST record),
+             so the windows live here rather than behind a spreadsheet export. -->
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <span class="label">Today</span>
+            <div class="val" id="statRevenueToday">₹0</div>
+            <span class="trend" id="statOrdersToday">0 orders</span>
+          </div>
+          <div class="admin-stat-card">
+            <span class="label">Last 7 Days</span>
+            <div class="val" id="statRevenue7">₹0</div>
+            <span class="trend" id="statOrders7">0 orders</span>
+          </div>
+          <div class="admin-stat-card">
+            <span class="label">Last 30 Days</span>
+            <div class="val" id="statRevenue30">₹0</div>
+            <span class="trend" id="statOrders30">0 orders</span>
+          </div>
+        </div>
+
         <!-- Recent In-Flight Orders Overview -->
         <div class="admin-table-container">
           <div class="admin-table-head">
@@ -181,6 +206,36 @@
                     title="Download the rows currently shown, filters included, as a spreadsheet-ready CSV">
               ⬇ Export CSV
             </button>
+
+            <!-- Date range: the ledger is read by period (today's packing list, the
+                 GST month), and the export always follows whatever is in view. -->
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; width: 100%;">
+              <span style="font-size: 12px; color: var(--color-text-muted); white-space: nowrap;">Date placed</span>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-text-muted); white-space: nowrap;">
+                From
+                <input type="date" id="orderDateFrom" class="form-input" style="padding: 0.35rem 0.6rem; font-size: 13px;">
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--color-text-muted); white-space: nowrap;">
+                To
+                <input type="date" id="orderDateTo" class="form-input" style="padding: 0.35rem 0.6rem; font-size: 13px;">
+              </label>
+              <button class="btn btn-xs btn-glass" id="btnDateThisMonth"
+                      title="Set the range to the first of this month up to today, for the GST record">This month</button>
+              <button class="btn btn-xs btn-glass" id="btnClearOrderDates"
+                      title="Clear the date range and show every order again">Clear dates</button>
+            </div>
+
+            <!-- Bulk actions appear once a row is ticked. -->
+            <div id="ordersBulkBar" style="display: none; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%; border-top: 1px solid var(--color-border-subtle); padding-top: 0.6rem;">
+              <span style="font-size: 12px; font-weight: 600; color: var(--color-primary-dark);">
+                <span id="ordersSelectedCount">0</span> selected
+              </span>
+              <button class="btn btn-xs btn-primary" id="btnBulkMarkPacked"
+                      title="Set every selected order to Packed, one at a time">📦 Mark Packed</button>
+              <button class="btn btn-xs btn-outline" id="btnBulkPrint"
+                      title="Print one packing slip per selected order (gift notes included)">🖨 Print slips</button>
+              <button class="btn btn-xs btn-glass" id="btnBulkClear">Clear selection</button>
+            </div>
           </div>
         </div>
 
@@ -189,6 +244,10 @@
             <table class="admin-table">
               <thead>
                 <tr>
+                  <th style="width: 34px;">
+                    <input type="checkbox" id="ordersSelectAll" title="Select every order in view"
+                           style="accent-color: var(--color-primary);">
+                  </th>
                   <th>Order Details</th>
                   <th>Customer / WhatsApp</th>
                   <th>Delivery Type &amp; Slot</th>
@@ -198,7 +257,7 @@
                 </tr>
               </thead>
               <tbody id="ordersTbody">
-                <tr><td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">Loading orders ledger...</td></tr>
+                <tr><td colspan="7" style="text-align: center; color: var(--color-text-muted); padding: 2rem;">Loading orders ledger...</td></tr>
               </tbody>
             </table>
           </div>
@@ -980,6 +1039,7 @@
   <script src="../js/store-service.js"></script>
   <script src="../js/order-service.js"></script>
   <script src="../js/admin-service.js"></script>
+  <script src="../js/print-service.js"></script>
   <script src="../js/layout.js"></script>
   <script src="../js/site-content-service.js"></script>
   <script src="../js/product-maker-service.js"></script>

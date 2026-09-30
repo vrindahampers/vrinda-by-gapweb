@@ -1,0 +1,168 @@
+/**
+ * vrindahampers - print layout for the admin packing slips
+ *
+ * Linked with media="print" on admin/index.html and admin/staff.html, so these
+ * rules only ever apply while printing and the on-screen admin is untouched.
+ *
+ * js/print-service.js renders one .print-slip per order into #printSheet (which
+ * it hides inline on screen) and calls window.print(). Everything below hides
+ * the rest of the page and gives the slips a layout that survives a laser
+ * printer: black on white, no backgrounds, 12mm page margins.
+ */
+
+@page {
+  margin: 12mm;
+}
+
+/* The page around the slips. #printSheet is the only thing meant to print. */
+body > *:not(#printSheet) {
+  display: none !important;
+}
+
+#printSheet {
+  display: block !important;
+  color: #111;
+  background: #fff;
+  font-family: 'Plus Jakarta Sans', Arial, Helvetica, sans-serif;
+  font-size: 11pt;
+  line-height: 1.45;
+}
+
+.print-slip {
+  page-break-after: always;
+  break-after: page;
+  padding-bottom: 6mm;
+}
+
+.print-slip:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
+
+/* ------------------------------------------------------------------ header */
+
+.slip-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid #111;
+  padding-bottom: 3mm;
+  margin-bottom: 4mm;
+}
+
+.slip-brand {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 20pt;
+}
+
+.slip-doc {
+  text-transform: uppercase;
+  letter-spacing: .16em;
+  font-size: 8.5pt;
+  color: #444;
+}
+
+.slip-order { text-align: right; }
+.slip-order-id { font-size: 14pt; font-weight: 700; }
+.slip-muted { color: #555; font-size: 9pt; }
+.slip-strong { font-weight: 700; }
+
+/* ------------------------------------------------------------------- body */
+
+.slip-columns {
+  display: flex;
+  gap: 8mm;
+  margin-bottom: 4mm;
+}
+
+.slip-block { flex: 1 1 0; }
+
+.slip-block h2,
+.slip-gift h2 {
+  font-size: 9pt;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: #444;
+  margin: 0 0 1.5mm;
+}
+
+.slip-label {
+  display: inline-block;
+  min-width: 14mm;
+  color: #555;
+  font-size: 9pt;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.slip-flag {
+  border: 1px dashed #111;
+  padding: 2mm 3mm;
+  margin-bottom: 3mm;
+  font-weight: 700;
+}
+
+.slip-note { margin-bottom: 3mm; }
+
+/* ------------------------------------------------------------------ items */
+
+.slip-items {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 4mm;
+}
+
+.slip-items th,
+.slip-items td {
+  border-bottom: 1px solid #ccc;
+  padding: 2mm 2mm 2mm 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.slip-items thead th {
+  border-bottom: 1.5px solid #111;
+  font-size: 9pt;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+
+.slip-items tfoot td {
+  border-bottom: none;
+  border-top: 1.5px solid #111;
+  font-weight: 700;
+}
+
+.slip-qty { width: 12mm; }
+.slip-num { text-align: right; width: 28mm; }
+
+/* --------------------------------------------------------------- gift note */
+
+.slip-gift {
+  border: 1px dashed #111;
+  padding: 4mm;
+  margin-bottom: 4mm;
+}
+
+.slip-gift-message {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 14pt;
+  line-height: 1.5;
+  margin: 3mm 0;
+  white-space: pre-wrap;
+}
+
+.slip-gift-sign { color: #555; }
+
+/* ----------------------------------------------------------------- footer */
+
+.slip-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6mm;
+  border-top: 1px solid #ccc;
+  padding-top: 3mm;
+  font-size: 9pt;
+}
+
+.slip-sign { min-width: 45mm; }
